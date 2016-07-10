@@ -1,0 +1,60 @@
+ protected void btnSave_Click(object sender, EventArgs e)
+        {
+            string filePath = @"E:\blobFile\demo.html";
+            string filename = Path.GetFileName(filePath);
+
+            FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            BinaryReader br = new BinaryReader(fs);
+            Byte[] bytes = br.ReadBytes((Int32)fs.Length);
+            br.Close();
+            fs.Close();
+
+            SqlConnection con = new SqlConnection("data source=Deepak-PC;Initial Catalog=Demo;integrated security=true");
+            con.Open();
+            SqlCommand cmd = new SqlCommand("Insert into DemoBlob (Data) VAlues (@Data)", con);
+            cmd.Parameters.Add("@Data", SqlDbType.Binary).Value = bytes;
+            cmd.ExecuteNonQuery();
+            con.Close();
+        }
+        private void download(DataTable dt)
+        {
+            Byte[] bytes = (Byte[])dt.Rows[0]["Data"];
+            Response.Buffer = true;
+            Response.Charset = "";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            Response.AddHeader("content-disposition", "attachment;filename="
+            + dt.Rows[0]["ID"].ToString() + ".html");
+            Response.BinaryWrite(bytes);
+            Response.Flush();
+            Response.End();
+        }
+        protected void btnRead_Click(object sender, EventArgs e)
+        {
+            SqlConnection con = new SqlConnection("data source=Deepak-PC;Initial Catalog=Demo;integrated security=true");
+            string strQuery = "select ID,Data from DemoBlob where id=@id";
+            SqlCommand cmd = new SqlCommand(strQuery, con);
+            cmd.Parameters.Add("@id", SqlDbType.Int).Value = 2;
+            SqlDataAdapter ad = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            ad.Fill(ds);
+            if (ds.Tables[0] != null)
+            {
+                download(ds.Tables[0]);
+            }
+        }
+
+        protected void Button1_Click(object sender, EventArgs e)
+        {
+            using (SqlConnection connection = new SqlConnection("data source=Deepak-PC;Initial Catalog=Demo;integrated security=true"))
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand("select Data from DemoBlob where id=2", connection))
+                {
+                    byte[] buffer = (byte[])command.ExecuteScalar();
+                    using (FileStream fs = new FileStream(@"E:\blobFile\test2.htm", FileMode.Create))
+                    {
+                        fs.Write(buffer, 0, buffer.Length);
+                    }
+                }
+            }
+        }
