@@ -1,0 +1,149 @@
+--Multi Client IN ClientMaster
+SELECT Client_Id,ClientName,Category,Type,Inst_Id,UpdatedBy,UpdatedDTM,IsActive  FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2
+
+--Address for Multi Client 
+SELECT CM.ClientName,A.* FROM [ADDRESS] A LEFT JOIN ClientMaster CM ON A.parentId=CM.Client_Id WHERE parentId IN (
+SELECT Client_Id FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2) AND ParentType='Client' AND A.Inst_Id=2 ORDER BY CM.ClientName
+
+--Contacts for Multi Client
+SELECT CM.ClientName,C.Contact_Id,C.ContactName,C.parentId,C.ParentType,C.FirstName,C.MiddleName,C.LastName,C.ContactType,
+C.UpdatedBy,C.UpdatedDTM,C.Inst_Id,C.IsActive from Contacts C Left Join ClientMaster CM ON C.parentId=CM.Client_Id where parentId IN (
+SELECT Client_Id FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2) and C.Inst_Id=2 and ParentType='Client' ORDER BY CM.ClientName
+
+--ContactDetails For Multi Client
+Select CM.ClientName,CD.* from ContactDetails CD Left Join ClientMaster CM ON CD.ParentId=CM.Client_Id WHERE ParentId IN (
+SELECT Client_Id FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2) AND CD.Inst_Id=2 AND CD.ParentType='Client'
+
+--Oppurtunity For Multi Client
+
+SELECT CM.ClientName,O.Opportunity_Id,O.Opportunity_details,O.StartDate,O.EndDate,O.parentId,O.ParentType,O.UpdatedBy,O.UpdatedDTM,O.Inst_Id,
+O.OpportunityStatus,O.OpportunityValue,O.IsActive FROM Opportunity O LEFT JOIN ClientMaster CM ON O.parentId=CM.Client_Id WHERE parentId IN (
+SELECT Client_Id FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2
+) AND O.Inst_Id=2 AND O.ParentType='Client'
+
+--InteractionParticipent For Multi Client
+
+SELECT CM.ClientName,I.* FROM InteractionParticipants I LEFT JOIN ClientMaster CM ON CM.Client_Id=I.ParticipantId AND I.ParticipantType='Client' 
+WHERE ParticipantId IN (
+SELECT Client_Id FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2
+) AND I.Inst_Id=2 AND I.ParticipantType='Client'
+
+---------------------------------------------------
+
+Select * from ClientMaster where Client_Id IN(116946,
+162655
+)
+
+Select * from Address where parentId IN (116946,
+162655
+)
+
+Select * from Contacts where parentId IN (116946,
+162655
+)
+
+Select * from ContactDetails where ParentId IN (116946,
+162655
+)
+
+Select * from Opportunity where parentId IN (116946,
+162655
+)
+
+Select * from InteractionParticipants where ParticipantId IN (116946,
+162655
+)
+
+
+SELECT Client_Id,ClientName,Category,Type,Inst_Id,UpdatedBy,UpdatedDTM,IsActive into #TempDulClients FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2
+
+
+
+-------
+SELECT CM.ClientName,A.* FROM [ADDRESS] A LEFT JOIN ClientMaster CM ON A.parentId=CM.Client_Id WHERE parentId IN (
+SELECT Client_Id FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2) AND ParentType='Client' AND A.Inst_Id=2 ORDER BY CM.ClientName
+------------------------------------------------------------------------------------
+
+
+
+Select DENSE_RANK() OVER (PARTITION BY T.ClientName ORDER BY T.UpdatedDTM DESC) AS 'R', 
+T.Client_ID,T.ClientName,T.UpdatedDTM  from #TempDulClients T  ORDER BY R
+
+Select DENSE_RANK() OVER (PARTITION BY T.ClientName ORDER BY T.UpdatedDTM DESC) AS 'R', 
+T.Client_ID,T.ClientName,T.UpdatedDTM into #TempRank from #TempDulClients T  ORDER BY R
+
+Select * from #TempRank
+
+
+SELECT  TT.Client_ID AS 'Client_ID1',T.Client_ID ,T.R,T.ClientName,A.parentId,A.ParentType,A.Inst_Id 
+FROM #TempRank T LEFT JOIN [ADDRESS] A ON T.Client_ID=A.parentId 
+LEFT Join #TempRank TT ON T.ClientName=TT.ClientName AND TT.R=1
+WHERE A.Inst_Id=2 AND T.R=2
+
+
+
+
+--UPDATE A SET Ad.parentId = TT.Client_ID 
+SELECT A.parentid,TT.Client_ID,A.inst_id
+FROM #TempRank T LEft JOIN [ADDRESS] A ON T.Client_ID=A.parentId 
+LEft JOIN #TempRank TT ON T.ClientName=TT.ClientName AND TT.R=1
+WHERE A.Inst_Id=2 AND T.R=2
+
+---------------------------------------------------------------------------------------------------------------------------------------
+
+
+SELECT CM.ClientName,C.Contact_Id,C.ContactName,C.parentId,C.ParentType,C.FirstName,C.MiddleName,C.LastName,C.ContactType,
+C.UpdatedBy,C.UpdatedDTM,C.Inst_Id,C.IsActive from Contacts C Left Join ClientMaster CM ON C.parentId=CM.Client_Id where parentId IN (
+SELECT Client_Id FROM ClientMaster WHERE ClientName IN (
+SELECT ClientName FROM ClientMaster WHERE Inst_Id=2 
+GROUP BY ClientName HAVING COUNT(ClientName)>1) AND Inst_Id=2) and C.Inst_Id=2 and ParentType='Client' ORDER BY CM.ClientName
+
+
+Select DENSE_RANK() OVER (PARTITION BY T.ClientName ORDER BY T.UpdatedDTM DESC) AS 'R', 
+T.Client_ID,T.ClientName,T.UpdatedDTM  from #TempDulClients T  ORDER BY R
+
+SELECT  TT.Client_ID AS 'Client_ID1',T.Client_ID ,T.R,T.ClientName,A.parentId,A.ParentType,A.Inst_Id 
+FROM #TempRank T LEFT JOIN [ADDRESS] A ON T.Client_ID=A.parentId 
+LEFT Join #TempRank TT ON T.ClientName=TT.ClientName AND TT.R=1
+WHERE A.Inst_Id=2 AND T.R=2
+
+
+SELECT C.Contact_Id,TT.Client_ID AS 'NewParentID',T.Client_ID,T.R,T.ClientName,C.ContactName,C.parentId,C.ParentType,C.Inst_Id,C.UpdatedDTM  
+Into #TempContactRank
+FROM #TempRank T LEFT JOIN Contacts C ON T.Client_ID=C.parentId 
+LEFT JOIN #TempRank TT ON T.ClientName=TT.ClientName AND TT.R=1
+Where T.R=2 AND C.Inst_Id=2 Order by C.ContactName
+
+
+
+Select DENSE_RANK() Over(Partition By ClientName order by UpdatedDTM desc),* from #TempContactRank
+
+--Update C SET C.ParentId=TT.Client_ID
+SELECT C.Parentid,TT.Client_ID,C.Inst_Id,C.ContactName,C.ParentType,C.Contact_ID
+From #TempRank T LEft JOIN Contacts21July2016 C ON T.Client_ID=C.parentId
+LEFT JOIN #TempRank TT ON T.ClientName=TT.ClientName AND TT.R=1
+WHERE C.Inst_Id=2 AND T.R=2 
+Order BY C.ContactName
+
+
+
+Select * from ClientMaster where Client_Id IN (148674,148675)
+
+--Select * from Contacts21July2016
+
