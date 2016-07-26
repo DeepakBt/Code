@@ -1,0 +1,3 @@
+IF OBJECT_ID('tempdb..#TempData') IS NOT NULL  --Temp Check
+	DROP TABLE #TempData 
+SELECT RIGHT('00000'+ CAST(4 AS VARCHAR(5)), 5) AS 'EmpCode' --Numeric Padding
