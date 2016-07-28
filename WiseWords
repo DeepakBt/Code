@@ -3,3 +3,18 @@ You can build something from nothing.
 You are like God. 
 You can change the world. 
 You can build something that will change the world.
+---------------------------------------------------------------------------------------------------------------------------------------
+Component: An individual software component is a software package, a web service, 
+a web resource, or a module that encapsulates a set of related functions (or data).
+
+components communicate with each other via interfaces. 
+When a component offers services to the rest of the system, 
+it adopts a provided interface that specifies the services that other components can utilize, and how they can do so. 
+This interface can be seen as a signature of the component – the client does not need to know about 
+the inner workings of the component (implementation) in order to make use of it. 
+This principle results in components referred to as encapsulated.
+
+A component is a small, potentially re-usable set of logic, behaviors and interface elements (UI or API). 
+And without components or component-based UI development, 
+our applications become monolithic spaghetti monsters and nightmares.
+---------------------------------------------------------------------------------------------------------------------------------------
