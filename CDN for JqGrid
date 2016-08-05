@@ -1,0 +1,12 @@
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/redmond/jquery-ui.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"/>
+<link rel="stylesheet" href="https://rawgit.com/free-jqgrid/jqGrid/master/css/ui.jqgrid.css"/>
+<link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-1.22.0.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<%--        <script>
+            $.jgrid = $.jgrid || {};
+            $.jgrid.no_legacy_api = true;
+    </script>--%>
+<script src="http://rawgit.com/free-jqgrid/jqGrid/master/js/jquery.jqgrid.src.js"></script>
+<script src="http://code.jquery.com/qunit/qunit-1.22.0.js"></script>
