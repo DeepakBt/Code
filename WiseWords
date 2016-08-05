@@ -18,3 +18,12 @@ A component is a small, potentially re-usable set of logic, behaviors and interf
 And without components or component-based UI development, 
 our applications become monolithic spaghetti monsters and nightmares.
 ---------------------------------------------------------------------------------------------------------------------------------------
+
+Dependency injection for five-year-olds
+When you go and get things out of the refrigerator for yourself, you can cause problems. 
+You might leave the door open, you might get something Mommy or Daddy doesn't want you to have. 
+You might even be looking for something we don't even have or which has expired.
+What you should be doing is stating a need, "I need something to drink with lunch,"and 
+then we will make sure you have something when you sit down to eat.
+--John Munsch, 28 October 2009.
+----------------------------------------------------------------------------------------------------------------------------------------
