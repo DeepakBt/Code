@@ -1,0 +1,108 @@
+Model:
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
+namespace WebApplication19.Models
+{
+    [Table("Emp")]
+    public class Employess
+    {
+    [Key]
+        public int EmpId { get; set; }
+        public string Name { get; set; }
+        public string Email { get; set; }
+        public decimal Contact { get; set; }
+    }
+}
+
+Context: //By Default context class is the name of connection string in web.config
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Data.Entity;
+namespace WebApplication19.Models
+{
+    public class EmployeeContext : DbContext
+    {
+        public DbSet<Employess> Emp { get; set; }
+    }
+}
+
+
+Controller:
+
+ public JsonResult GetEmp()
+        {
+            EmployeeContext E = new EmployeeContext();
+            var Em = (from m in E.Emp
+                      select m).ToArray();
+            return Json(Em, JsonRequestBehavior.AllowGet); 
+            
+        }
+        
+View LayOut :
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+
+    <title>@ViewBag.Title</title>
+
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/redmond/jquery-ui.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="https://rawgit.com/free-jqgrid/jqGrid/master/css/ui.jqgrid.css" />
+    <link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-1.22.0.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+    <script src="http://rawgit.com/free-jqgrid/jqGrid/master/js/jquery.jqgrid.src.js"></script>
+    <script src="http://code.jquery.com/qunit/qunit-1.22.0.js"></script>
+
+    <link type="text/css" href="@Url.Content("~/contents/StyleSheet1.css")" rel="stylesheet" />
+    <script language="javascript">
+        $(document).ready(function () {
+            $("#tbl").jqGrid({
+                width: '700',
+                url: '/Home/GetEmp',
+                datatype: "json",
+                contentType: "application/json; charset-utf-8",
+                mtype: 'GET',
+                colNames: ['EmpId', 'Name', 'Email','Contact'],
+                colModel: [
+                    { name: 'EmpId', index: 'EmpId', width: 55, sorttype: "int" },
+                    { name: 'Name', index: 'Name', width: 90 },
+                    { name: 'Email', index: 'Email', width: 100 },
+                    { name: 'Contact', index: 'Contact', width: 80 },
+                ],
+                rowNum: 5,
+                rowList: [3,6,9],
+                pager: '#pager',
+                sortname: 'id',
+                viewrecords: true,
+                sortorder: "asc",
+                loadonce: true,
+                caption: "JSON Example"
+            });
+            jQuery("#tbl").jqGrid('navGrid', '#pager',
+                { edit: false, add: false, del: false });
+        });
+    </script>
+</head>
+<body>
+    <div id="menuBar">
+        This is menu bar common for all the views
+    </div>
+    <div>
+        @RenderBody()
+    </div>
+    <table id="tbl"></table>
+    <div id="pager"></div>
+</body>
+</html>
