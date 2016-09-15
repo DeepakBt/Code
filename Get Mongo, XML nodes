@@ -1,0 +1,37 @@
+                //Mongo Get
+                int ClientId = 0;
+                string parentType = objUtilities.GetParentType(HttpContext.Current.Request.Url.AbsoluteUri.ToString());
+                string strTableName = "Custody_Data";
+                string PropertyName = string.Empty;
+                foreach (var m in match)
+                {
+                    if (m.Key.ToString() == "client_id")
+                    {
+                        ClientId = Convert.ToInt32(m.Value);
+                        ht.Add("ParentId", ClientId);
+                    }
+                    else if (m.Key.ToLower() == "propertyname")
+                    {
+                        PropertyName = m.Value;
+                        ht.Add("PropertyName", PropertyName);
+                    }
+                }
+                if (ClientId != 0)
+                {
+                    ht.Add("InstallationId", objlogin.Ins_Id);
+                    MongoConn mc = new MongoConn(parentType, strTableName);
+                    JObject JData;
+                    JData = mc.GetCustodyDetails(ht);
+                    XmlDocument ClientXML = new XmlDocument();
+                    ClientXML.LoadXml(xmlString);
+                    XmlDocument MongoData = new XmlDocument();
+                    MongoData = JsonConvert.DeserializeXmlNode(JData.ToString(), "root");
+                    if (MongoData != null)
+                    {
+                        string mongoProperties = MongoData.SelectSingleNode("/root/MongoProperties").OuterXml;
+                        MongoData.LoadXml(mongoProperties);
+                        ClientXML.DocumentElement.AppendChild(ClientXML.ImportNode(MongoData.DocumentElement, true));
+                        xmlString = ClientXML.InnerXml.ToString();
+                    }
+                }
+                return new HttpResponseMessage() { Content = new StringContent(xmlString, Encoding.UTF8, "application/xml") };
