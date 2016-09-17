@@ -1,0 +1,89 @@
+<asp:Content ID="Content1" ContentPlaceHolderID="head" runat="Server">
+<script type="text/javascript">
+    function myFunction() {
+        $('#popupWin').show();
+        return false;
+    }
+    function ClosePop() {
+        $('#popupWin').hide();
+        return false;
+    }
+    </script>
+    <style type="text/css">
+    .popHeader
+    {
+        background-color:Black; height:32px;
+    }
+    .popText
+    {
+        float:left;margin-top: 5px;
+    }
+    .TextLabel
+    {
+        color:White;font-size: 20px;
+    }
+    .closeimg
+    {
+        text-align:right;float:right;margin-top: 5px;
+    }
+    #closeImg
+    {
+        cursor:pointer;
+    }
+    </style>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="Server">
+    <div style="margin-top: 100px; margin-left: 500px">
+        <button id="btnPayment" onclick="return myFunction()">Click me</button>
+    </div>
+    <div id="popupWin" style="display:none; z-index: 999999; height: 150px"
+        class="ShowInteractions  discroll">
+        <div class="popHeader">
+        <div class="popText">
+        <label class="TextLabel">Payment Mode</label>
+        </div>
+        <div class="closeimg">
+        <img id="closeImg" src="../images/close.png" width="22" height="22" alt="Close" onclick="return ClosePop()"/>
+        </div>
+        </div>
+        <table>
+            <tr>
+                <td>
+                    Mode
+                </td>
+                <td>
+                    Amount
+                </td>
+                <td>
+                    Receipt Number
+                </td>
+                <td>
+                    Date
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <asp:DropDownList ID="ddlMode" runat="server">
+                    </asp:DropDownList>
+                </td>
+                <td>
+                    <asp:TextBox ID="txtAmount" runat="server"></asp:TextBox>
+                </td>
+                <td>
+                    <asp:TextBox ID="txtReceiptNo" runat="server"></asp:TextBox>
+                </td>
+                <td>
+                    <asp:TextBox ID="txtDate" runat="server"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <asp:Button ID="btnAdd" runat="server" Text="ADD" />
+                </td>
+                <td>
+                    <asp:Button ID="btnCancel" runat="server" Text="Cancel" />
+                </td>
+            </tr>
+        </table>
+    </div>
+</asp:Content>
