@@ -1,0 +1,10 @@
+using (var bulkCopy = new SqlBulkCopy(con.ConnectionString))
+                {
+                    foreach (DataColumn col in dsExcel.Tables[0].Columns)
+                    {
+                        bulkCopy.ColumnMappings.Add(col.ColumnName, col.ColumnName);
+                    }
+                    bulkCopy.BulkCopyTimeout = 600;
+                    bulkCopy.DestinationTableName = "DestinationTable";
+                    bulkCopy.WriteToServer(dsExcel.Tables[0]);
+                }
