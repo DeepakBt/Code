@@ -1,0 +1,9 @@
+//Action Return as HTML        
+        [HttpGet]
+        public HttpResponseMessage DemoHtml()
+        {
+            var response = new HttpResponseMessage();
+            response.Content = new StringContent("<html><body><b><i>Hello World</i></b></body></html>");
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+            return response;
+        }
