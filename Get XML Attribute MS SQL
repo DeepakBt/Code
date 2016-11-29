@@ -1,0 +1,3 @@
+SELECT @Rating=OT.T.value('@RatingValue', 'int') 
+FROM TagMaster  cross apply TagMaster.OpenTags.nodes('//otag//tags//Rating') AS OT(T)
+Where OT.T.value('.','nvarchar(100)')=@FeedBackVal AND Inst_Id=Inst_Id AND TagType='Ticket Feedback'
