@@ -1,0 +1,27 @@
+Create Table TestQty
+(
+RefNo Varchar(6),
+[Date] DateTime,
+Qty Decimal(18,2)
+)
+
+
+CREATE Proc AddData
+AS
+BEGIN
+	DECLARE @Count AS INT
+	DECLARE @Qty AS Decimal(18,2)
+	DECLARE @Date AS DATETIME
+	DECLARE @RfNo VARCHAR(6)
+	SET @Count=1
+	SET @Qty=5.00
+	SET @Date='2016-04-01'
+		WHILE(@Count<=100)
+			BEGIN
+				SET @RfNo='TR'+(RIGHT('000'+CAST(@Count AS VARCHAR(3)),3))
+				INSERT INTO TestQty VALUES(@RfNo,@Date,@Qty)
+				SET @Date=DATEADD(D,1,@Date)
+				SET @Qty=@Qty+5
+				SET @Count=@Count+1
+			END
+END
