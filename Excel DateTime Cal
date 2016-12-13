@@ -1,0 +1,13 @@
+Excel Time Difference In Hours
+=(End time - Start time) * 24
+
+Excel Time Diffrence In Min
+=(End time - Start time) * 1440
+
+Excel Time Diffrence In Second
+=(End time - Start time) * 86400
+
+
+Note : End Time and Start time are DateTime 
+1440=24 hours * 60 minutes
+86400=24 hours * 60 minutes * 60 seconds
