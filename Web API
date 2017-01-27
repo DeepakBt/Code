@@ -7,3 +7,17 @@
             response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
             return response;
         }
+----------------------------------------------------------------------------------------------
+Calling API From Console
+----------------------------------------------------------------------------------------------
+Public HttpResponseMessage PostData()
+{
+        HttpClient client = new HttpClient();
+        string BaseURI;
+        BaseURI = System.Configuration.ConfigurationSettings.AppSettings.Get("QuadratyxAPI");
+        Attachment objAttachmntToPost = (Attachment)JsonConvert.DeserializeObject(message);
+        client.BaseAddress = new Uri(BaseURI);
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        var response = client.PostAsJsonAsync("api/notify", objAttachmntToPost).Result;
+        return response
+}
