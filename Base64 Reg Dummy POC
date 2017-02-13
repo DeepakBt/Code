@@ -1,0 +1,10 @@
+            string str = "<img scr='google.com'/><img src='data:image/png;base64,i'/><img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgdsadsadasdAAADIA'/><img scr='google.com'/><img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgdsadsadasdasdsadasdAAADIA'/><img src='data:image/png;base64,sdasdasidasdsadsVBORw0KGgoAAAANSUhEUgdsadsadasdAAADIA'/>";
+            string pattern = ";base64,(.*?)/>";
+            Regex R = new Regex(pattern);
+            List<string> b64 = new List<string>();
+            foreach (Match m in R.Matches(str))
+            {
+                b64.Add(m.ToString());
+                Console.WriteLine(m.ToString());
+                Console.WriteLine(m.ToString().Substring(8,m.Length-11));
+            }
