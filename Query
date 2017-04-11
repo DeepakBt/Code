@@ -1,3 +1,179 @@
 IF OBJECT_ID('tempdb..#TempData') IS NOT NULL  --Temp Check
 	DROP TABLE #TempData 
 SELECT RIGHT('00000'+ CAST(4 AS VARCHAR(5)), 5) AS 'EmpCode' --Numeric Padding
+
+----------------------------------------
+--For Creating Schema
+CREATE XML SCHEMA COLLECTION SimpleMasterTagsSchema AS
+'<?xml version="1.0" encoding="Windows-1252"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="tags">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Raisedby" type="xs:string" minOccurs="0" />
+        <xs:element name="RelationshipNo" type="xs:unsignedInt" minOccurs="0" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>'
+
+--For Check Schema created or Not
+SELECT * FROM sys.xml_schema_collections; 
+SELECT * FROM sys.xml_schema_collections where name ='SimpleMasterTagsSchema'
+
+--For viewing Schema namespace
+SELECT * FROM sys.xml_schema_namespaces;
+
+--For Viewing schema text 
+SELECT XML_SCHEMA_NAMESPACE (N'dbo', N'SimpleMasterTagsSchema')
+
+--For Droping Schema
+DROP XML SCHEMA COLLECTION SimpleMasterTagsSchema
+
+--For Implementing schema in xml column
+CREATE TABLE TestSchema (  
+        i int identity primary key,   
+        x xml (SimpleMasterTagsSchema)); 
+
+OR by using Alter Command
+
+ALTER TABLE TestSchema
+ALTER Column x xml (SimpleMasterTagsSchema)
+
+--XML value Filetr using value method in ms sql
+SELECT x.value('(/tags/Raisedby)[1]','varchar(100)' ) AS 'MyValue' FROM TestSchema 
+WHERE x.value('(/tags/Raisedby)[1]','varchar(100)' ) ='NewData'
+
+
+
+------Index on XML
+--Index Cluster
+ALTER TABLE TicketsXmlIndex ADD CONSTRAINT [PK_TicketId] PRIMARY KEY CLUSTERED
+(
+TicketId ASC
+)
+--Primary Index on XML
+CREATE PRIMARY XML INDEX [MasterTagPrimaryIndex]
+ON TicketsXmlIndex(MasterTags)
+GO
+--Secondary index on Xml
+CREATE XML INDEX [MasterTagSecIndex_Path] ON TicketsXmlIndex(MasterTags)
+USING XML INDEX [MasterTagPrimaryIndex]
+FOR PATH 
+
+--Index Drop 
+DROP INDEX MasterTagPrimaryIndex   
+    ON TicketsXmlIndex; 
+----------------------------------------------------------------------------------
+ALTER TABLE TicketsXmlIndex ADD CONSTRAINT [PK_TicketId] PRIMARY KEY CLUSTERED
+(
+TicketId ASC
+)
+
+CREATE PRIMARY XML INDEX [MasterTagPrimaryIndex]
+ON TicketsXmlIndex(MasterTags)
+GO
+
+CREATE XML INDEX [MasterTagSecIndex_Path] ON TicketsXmlIndex(MasterTags)
+USING XML INDEX [MasterTagPrimaryIndex]
+FOR PATH 
+
+CREATE NONCLUSTERED INDEX IAssignedTo
+ON TicketsXmlIndex (AssignedTo);
+
+CREATE NONCLUSTERED INDEX IUpdatedBy
+ON TicketsXmlIndex (UpdatedBy);
+
+CREATE NONCLUSTERED INDEX IRaisedby
+ON TicketsXmlIndex (Raisedby);
+
+CREATE NONCLUSTERED INDEX Itype
+ON TicketsXmlIndex (Type);
+
+CREATE NONCLUSTERED INDEX ISubType
+ON TicketsXmlIndex (SubType);
+
+CREATE NONCLUSTERED INDEX IInst_Id
+ON TicketsXmlIndex (Inst_Id);
+
+DBCC DBREINDEX ('TicketsXmlIndex')
+
+
+DBCC DBREINDEX ('TicketsXmlIndex', PK_TicketId,80); 
+
+---------------------------------------------------------------------------------------------------------------------
+-------------Resources Check in MS SQL
+SELECT sqltext.TEXT,
+ DB_NAME(database_id) [Database],
+req.session_id,
+req.status,
+req.command,
+req.cpu_time,
+req.total_elapsed_time,
+req.*
+FROM sys.dm_exec_requests req
+CROSS APPLY sys.dm_exec_sql_text(sql_handle) AS sqltext
+where req.session_id=210
+order by req.total_elapsed_time desc
+
+------------Resources Check with DB NAme in MS Sql
+SELECT      r.start_time [Start Time],session_ID [SPID],
+            DB_NAME(database_id) [Database],
+            SUBSTRING(t.text,(r.statement_start_offset/2)+1,
+            CASE WHEN statement_end_offset=-1 OR statement_end_offset=0 
+            THEN (DATALENGTH(t.Text)-r.statement_start_offset/2)+1 
+            ELSE (r.statement_end_offset-r.statement_start_offset)/2+1
+            END) [Executing SQL], 
+            Status,command,wait_type,wait_time,wait_resource, 
+            last_wait_type
+FROM        sys.dm_exec_requests r
+OUTER APPLY sys.dm_exec_sql_text(sql_handle) t
+WHERE       session_id != @@SPID -- don't show this query
+AND DB_NAME(database_id)='Exponentia'
+ORDER BY    r.start_time 
+
+--------------Xml Open tag To DataSet and manupulations
+DECLARE @Inst_Id TinyInt
+SET @Inst_Id=4
+  IF OBJECT_ID('tempdb..#TemplateList') IS NOT NULL                                                     
+    DROP TABLE #TemplateList  
+	SELECT F.V.value('@ClientType', 'varchar(max)') AS 'ClientType',
+    F.V.value('@MeetingType', 'varchar(max)') AS 'MeetingType',
+    F.V.value('.','nvarchar(100)') AS 'TemplateId' Into #TemplateList
+	FROM Workflow AS WF
+    CROSS APPLY WF.OpenTags.nodes('otag/tags/MeetingTemplate') AS F(V) WHERE WorkflowName='Interaction_Workflow'
+    
+    
+   IF OBJECT_ID('tempdb..#TempID') IS NOT NULL                                                     
+    DROP TABLE #TempID 
+    SELECT DISTINCT MT.TemplateId INTO #TempID FROM Interactions I 
+    INNER JOIN TagMaster TM ON I.InteractionType=TM.TagId
+    INNER JOIN #TemplateList MT ON MT.MeetingType=TM.tagName AND TM.Inst_Id=@Inst_Id
+    INNER JOIN #TemplateList CT ON CT.ClientType=I.MasterTags.value('(tags/ClientMeetingType/node())[1]','varchar(100)')
+    WHERE I.InteractionId =3563 AND TM.TagType='MeetingType'
+   
+   IF OBJECT_ID('tempdb..#TempTId') IS NOT NULL                                                     
+    DROP TABLE #TempTId  
+    SELECT  ROW_NUMBER() Over (Order by TemplateId) AS 'SrNo',TemplateId INTO #TempTId FROM #TempID
+    
+    --SELECT * FROM #TempTId
+    
+    DECLARE @Count Int,@MaxCount Int,@TemplateStr VARCHAR(Max),@TemplateNode VARCHAR(Max)
+    SET @Count=1
+    SET @TemplateStr='<tags type="Template_Id">'
+    SELECT @MaxCount=MAX(SrNo) From #TempTId
+    WHILE(@Count<=@MaxCount)
+	BEGIN
+		SELECT @TemplateNode=TemplateId FROM #TempTId WHERE SrNo=@Count
+		SET @TemplateStr=@TemplateStr+'<Template_Id>'+CONVERT(VARCHAR(10),@TemplateNode)+'</Template_Id>'
+		SET @Count=@Count+1
+	END
+    SET @TemplateStr=@TemplateStr+'</tags>'
+    
+    SELECT @TemplateStr AS 'Temp'
+
+
+-----Cross Apply Otag
+	SELECT  TS.S.value('.','nvarchar(100)') AS 'ClientType'  from Workflow WF 
+	CROSS APPLY WF.OpenTags.nodes('/otag/tags[@type="MeetingTemplate"]/MeetingTemplate/@ClientType') as TS(S)
+	WHERE WF.Inst_Id=4 AND WF.WorkflowName='Interaction_Workflow'
