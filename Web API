@@ -21,3 +21,26 @@ Public HttpResponseMessage PostData()
         var response = client.PostAsJsonAsync("api/notify", objAttachmntToPost).Result;
         return response
 }
+-----------------------------------------------------------------------------------------------
+        public void GetApidata()
+        {
+            HttpClient hp = new HttpClient(); //From System.Net.Http
+            string BaseURI = "http://localhost:33296/";
+            hp.BaseAddress = new Uri(BaseURI);
+            hp.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json")); //From System.Net.Http.Headers
+            var response = hp.GetAsync("api/index/GetProduct/3").Result;
+            Console.WriteLine(response.Content.ReadAsStringAsync().Result.ToString());
+            Console.ReadLine();
+        }
+-------------------------------------------------------------------------------------------------
+From JQuery note from same domen work fine, but for cross domen need to set cors in API
+--------------------------------------------------------------------------------------------------
+$.ajax({ url: "http://localhost:33296/api/index/GetProduct",
+         type: "Get",
+         crossDomain: true,
+         accept: 'application/json',
+         success: function (data) {
+         myData(data);
+         },
+         error: function (msg) { alert("Error: " + msg); }
+         });
