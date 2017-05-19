@@ -7,3 +7,17 @@ SET @DateTimeNow=CONVERT(VARCHAR(24),@DateTime,121)
 SELECT @encrypt = ENCRYPTBYPASSPHRASE('kedy',@DateTimeNow)
 SELECT @encrypt
 SELECT CONVERT(VARCHAR(100),DECRYPTBYPASSPHRASE('kedy', @encrypt ))
+
+
+--------------Convert To String
+
+DECLARE @encryptDateTime AS VARBINARY(200) 
+DECLARE @DateTimeNow AS VARCHAR(24)
+DECLARE @DateTime AS DATETIME
+SET @DateTime =GETDATE()
+SELECT @DateTime
+SET @DateTimeNow=CONVERT(VARCHAR(24),@DateTime,121)
+SELECT @encryptDateTime = ENCRYPTBYPASSPHRASE('key',@DateTimeNow)
+SELECT CONVERT(VARCHAR(200),@encryptDateTime,1);
+SELECT @encryptDateTime
+SELECT CONVERT(VARCHAR(200),DECRYPTBYPASSPHRASE('key',@encryptDateTime))
