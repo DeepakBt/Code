@@ -21,3 +21,7 @@ SELECT @encryptDateTime = ENCRYPTBYPASSPHRASE('key',@DateTimeNow)
 SELECT CONVERT(VARCHAR(200),@encryptDateTime,1);
 SELECT @encryptDateTime
 SELECT CONVERT(VARCHAR(200),DECRYPTBYPASSPHRASE('key',@encryptDateTime))
+----------
+SET	@encrypt=CONVERt(varbinary(200),@textDateDecrypt,1)
+SET @starttime= CONVERT(VARCHAR(200),DECRYPTBYPASSPHRASE('StartKey', @encrypt))
+SET @TimeBonusPoint=@AnswerTime-(DATEDIFF(S,@starttime,GETDATE()))
