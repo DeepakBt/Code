@@ -177,3 +177,220 @@ SET @Inst_Id=4
 	SELECT  TS.S.value('.','nvarchar(100)') AS 'ClientType'  from Workflow WF 
 	CROSS APPLY WF.OpenTags.nodes('/otag/tags[@type="MeetingTemplate"]/MeetingTemplate/@ClientType') as TS(S)
 	WHERE WF.Inst_Id=4 AND WF.WorkflowName='Interaction_Workflow'
+
+-----------Rename Node
+update #TempOpp set
+  MasterTags = replace(replace(cast(MasterTags as nvarchar(max)), 
+                           '<BusinessType>', 
+                           '<Business>'), 
+                   '</BusinessType>', 
+                   '</Business>') where Name='Jack'
+
+------------Extract OpenTags
+   IF OBJECT_ID('tempdb..#Temp') is not null                    
+   Drop Table #Temp
+   SELECT DISTINCT  TMM.Inst_Id,TMM.TagId,CAST(R.U.value('.','nvarchar(100)')AS INT) AS 'ShowTo' INTO #Temp
+   FROM TagMaster TM Inner Join TagMaster TMM ON TM.TagId=TMM.TagId AND TMM.Inst_Id=10
+   CROSS APPLY TM.OpenTags.nodes('/otag/tags[@type="ShowToUser"]/ShowTo') AS R(U) 
+   
+---------structure
+CREATE PROC [dbo].[SuperStructure]                                       
+/************************************************************************
+ '     Object Name   : SuperStructure
+ '     Purpose       : 
+ '     Author        : Deepak
+ '     Creation Date : 21 June 2017
+Test: 
+EXEC SuperStructure 99,8594,'<NewDataSet>
+<parenttype>Mood</parenttype>
+<ddstatus>Get Lost, Come Back</ddstatus>
+</NewDataSet>'
+************************************************************************/                                                                   
+@Inst_Id INT,@UserId int,@ParamXML xml                                                       
+AS                                                                            
+BEGIN                                                                                                             
+	 DECLARE @I INT, @inTime Datetime,@OutTime Datetime                      
+	 set @inTime=getdate()                                                                                                                     
+	                                                                                             
+		EXEC sp_xml_preparedocument @I OUTPUT, @ParamXML;                                                                            
+	                                                                             
+	 SELECT * INTO #tbl_XML_Data  FROM OPENXML (@I, 'NewDataSet', 2)                                                                                            
+	 WITH                                                                                      
+	  (  parentid VARCHAR(100),                                                                            
+		 parenttype VARCHAR(100),                                                                 
+		 lob VARCHAR(100),
+		 fromdate VARCHAR(100),                                                                               
+		 todate VARCHAR(100),
+		 dealid VARCHAR(100),
+		 [status] VARCHAR(100),
+		 rm VARCHAR(100),
+		 opportunity_id varchar(100),
+		 agingday varchar(100),
+		 totalaging VARCHAR(100),
+		 icstatus VARCHAR(100),
+		 riskcategory varchar(100),
+		 ddstatus VARCHAR(100)
+	  )        
+	  
+	  IF OBJECT_ID('tempdb..#tbl_XML_Data1') IS NOT NULL
+	  DROP TABLE #tbl_XML_Data1  
+	 -- SELECT * INTO #tbl_XML_Data1  FROM OPENXML (@I, 'NewDataSet/opportunitystatus/status',2)                                                                                            
+		--WITH                                              
+		--(                                                                  
+		--[status] varchar(100) '.'                                                                      
+		--)                             
+	;WITH CTE
+	AS
+	(
+    SELECT  [xml_val] = CAST('<t>' + REPLACE(ddstatus,',','</t><t>') + '</t>' AS XML)
+    FROM #tbl_XML_Data
+	)
+	SELECT ddstatus = col.value('.','VARCHAR(100)') INTO #tbl_XML_Data1 FROM CTE 
+	CROSS APPLY [xml_val].nodes('/t') CA(col)                                                                                                                                         
+	 EXEC sp_xml_removedocument @I;                                
+	                                                                             
+	                                                                       
+	 DECLARE @ParentId VARCHAR(100),@ParentType VARCHAR(100),@LOB VARCHAR(100),@FromDate VARCHAR(100),@ToDate VARCHAR(100),@IgnoreClientSecurity INT,
+	 @Status VARCHAR(100),@Rm VARCHAR(100),@Opportunity_Id VARCHAR(100),@agingday VARCHAR(100),@totalaging VARCHAR(100),@icstatus VARCHAR(100),@riskcategory varchar(100)
+	                                
+	 SELECT @ParentId=parentid,@ParentType=parenttype,@LOB=lob,@FromDate=fromdate,@ToDate=todate,@Status=[status],@Rm=rm,@Opportunity_Id=opportunity_id,
+	 @agingday=agingday,@totalaging=totalaging,@icstatus=icstatus,@riskcategory=riskcategory  
+	 FROM #tbl_XML_Data     
+
+	 SELECT DISTINCT UserId,ParentType,parentId,AccessAllowed,Inst_Id INTO #Rowlevelsec                                                                             
+	 FROM rowlevelsecurity                                                                             
+	 WHERE UserId=@UserId                                                                             
+	 AND ISNULL(AccessAllowed,0)=1 AND ISNULL(Inst_Id,0)=@Inst_Id                                                    
+	                                                              
+	 DECLARE @IgnoreProductLevelSecurity INT
+	 SELECT @IgnoreProductLevelSecurity=(SELECT COUNT(1) from FeatureMaster WHERE Inst_Id=@Inst_Id AND FeatureId=9 AND IsActive=1)                                      
+	                                          
+	 IF(@IgnoreProductLevelSecurity=0)                                      
+	 BEGIN                                                  
+		SET @IgnoreProductLevelSecurity=(SELECT COUNT(1) FROM UserMaster WHERE UserId=@UserId AND Inst_Id=@Inst_Id AND 
+		CAST(MasterTags.query('/tags/IgnoreProductRowlevelSecurity/text()') as varchar(5))='1')                                               
+	 END                                                                                                                          
+	  SET @IgnoreClientSecurity =(SELECT dbo.fun_IsIgnoreRowLevelSecurity(@UserId,@ParentType,@Inst_Id)) 
+	  
+		 IF OBJECT_ID('tempdb..#tempOpportunity') IS NOT NULL
+		DROP TABLE #tempOpportunity
+	  SELECT UM.UserId AS 'RM',UM.UserName AS 'RMName',CM.ClientName,O.Opportunity_Id,O.OpportunityValue,O.OpportunityStatus,O.UpdatedDTM,O.MasterTags,O.OpenTags
+	  INTO #tempOpportunity FROM Opportunity O INNER JOIN ClientMaster CM ON CM.Client_Id=O.parentId AND O.ParentType='Client'
+	   LEFT JOIN #tbl_XML_Data1 xdt ON O.OpportunityStatus = (CASE WHEN (SELECT COUNT(1) from #tbl_XML_Data1)>0 THEN xdt.[ddstatus] ELSE                                                          
+         O.OpportunityStatus END)
+	  LEFT JOIN UserMaster UM ON UM.UserId=CM.MasterTags.value('(tags/Primary/node())[1]','varchar(100)')
+	  LEFT JOIN UserMaster UML ON UML.UserId=CM.MasterTags.value('(tags/Primary/node())[1]','varchar(100)')
+	  LEFT JOIN #Rowlevelsec rs on (O.parentId =rs.parentId AND rs.ParentType=O.ParentType)
+	  LEFT JOIN #Rowlevelsec rs1 on  rs1.parentId=O.ProductId AND rs1.ParentType='Product'
+	  WHERE O.Inst_Id =@Inst_Id AND O.ParentType=@ParentType 
+	  --AND (ISNULL(@Status,ISNULL(O.OpportunityStatus,'')) = ISNULL(O.OpportunityStatus,''))
+	   AND 1 = (CASE WHEN (SELECT COUNT(1) FROM #tbl_XML_Data1)>0 AND xdt.[ddstatus] IS NOT NULL THEN 1                                                           
+		WHEN (SELECT COUNT(1) FROM #tbl_XML_Data1)<= 0 THEN 1                                                           
+		ELSE 0 END)
+	  AND (ISNULL(@Opportunity_Id,ISNULL(O.Opportunity_Id,'')) = ISNULL(O.Opportunity_Id,''))
+	  AND (ISNULL(@ParentId,ISNULL(O.parentId,'')) = ISNULL(O.parentId,''))
+	  AND (ISNULL(@riskcategory,ISNULL(O.MasterTags.value('(tags/RiskCategory/node())[1]','varchar(100)'),'')) = ISNULL(O.MasterTags.value('(tags/RiskCategory/node())[1]','varchar(100)'),''))
+	  AND (ISNULL(@LOB,ISNULL(UML.MasterTags.value('(tags/LOB/node())[1]','varchar(100)'),'')) = ISNULL(UML.MasterTags.value('(tags/LOB/node())[1]','varchar(100)'),''))
+	  AND (@FromDate IS NULL OR CONVERT(DATETIME,CONVERT(VARCHAR(11),O.StartDate,106))>=CONVERT(DATETIME,CONVERT(VARCHAR(11),@FromDate,106)))                                                                            
+	  AND (@ToDate IS NULL OR CONVERT(DATETIME,CONVERT(VARCHAR(11),O.StartDate,106))<=CONVERT(DATETIME,CONVERT(VARCHAR(11),@ToDate,106)))                                                                
+	  AND (ISNULL(@Rm,ISNULL(UM.UserId,'')) = ISNULL(UM.UserId,''))
+	  AND ((CASE WHEN @IgnoreClientSecurity=1 THEN 1                                                                                  
+			WHEN @IgnoreClientSecurity=0 and rs.parentId = O.parentId            
+			AND rs.ParentType=O.ParentType THEN 1 END) =1                                                     
+		  )
+	 AND ((CASE WHEN @IgnoreProductLevelSecurity=1 THEN 1
+     WHEN @IgnoreProductLevelSecurity=0 AND rs1.parentId IS NOT NULL THEN 1 END) =1) 
+	 
+	  
+	IF OBJECT_ID('tempdb..#TempOpp') IS NOT NULL
+	  DROP TABLE #TempOpp  
+	  Select * INTO #TempOpp FROM 
+	  (
+	  SELECT Opportunity_Id,OpportunityStatus,UpdatedDTM from #tempOpportunity 
+	  UNION
+	  Select OH.Opportunity_Id,OH.OpportunityStatus,OH.HistoryDTM 
+	  FROM OpportunityHistory OH Inner JOin #tempOpportunity O ON OH.Opportunity_Id=O.Opportunity_Id 
+	  )T
+	  
+	  
+	  IF OBJECT_ID('tempdb..#TempOppRank') IS NOT NULL
+	  DROP TABLE #TempOppRank
+	  SELECT Opportunity_Id,OpportunityStatus,UpdatedDTM,
+	  DENSE_RANK() OVER (PARTITION BY Opportunity_Id,OpportunityStatus ORDER BY UpdatedDTM) AS 'Rank' INTO #TempOppRank
+	  FROM #TempOpp ORDER BY Opportunity_id 
+	  
+	  
+	  IF OBJECT_ID('tempdb..#TempOppRank2') IS NOT NULL
+	  DROP TABLE #TempOppRank2
+	  SELECT *,DENSE_RANK() OVER (PARTITION BY Opportunity_Id ORDER BY UpdatedDTM) AS 'Rank2' INTO #TempOppRank2 FROM #TempOppRank WHERE [RANK]=1
+	 
+	  
+	  	  IF OBJECT_ID('tempdb..#TempOppAgingFiletr') IS NOT NULL
+	  DROP TABLE #TempOppAgingFiletr
+	  SELECT t1.*,DATEDIFF(D,t1.UpdatedDTM,isnull(t2.UpdatedDTM,getdate())) AS 'Aging'--,DATEDIFF(D,TB.UpdatedDTM,GETDATE()) AS 'TotalAging' 
+	  INTO #TempOppAgingFiletr FROM #TempOppRank2 t1 LEFT JOIN #TempOppRank2 t2 on t1.Opportunity_Id=t2.Opportunity_Id and t1.rank2=t2.rank2-1
+	  LEFT JOIN (Select * from #TempOppRank2 where Rank2=1)TB ON t1.Opportunity_id=TB.Opportunity_id
+     
+     IF OBJECT_ID('tempdb..#TempOppAging') IS NOT NULL
+	  DROP TABLE #TempOppAging
+      SELECT * INTO #TempOppAging FROM #TempOppAgingFiletr 
+      WHERE (@agingday IS NULL OR Aging >=@agingday) 
+	  
+	  
+	 IF OBJECT_ID('tempdb..#TempOppPivot') IS NOT NULL
+	 DROP TABLE #TempOppPivot
+	 SELECT * INTO #TempOppPivot FROM (SELECT Opportunity_id,OpportunityStatus,Aging FROM #TempOppAging) as Pv
+     PIVOT
+     (
+      SUM(Aging) FOR OpportunityStatus IN ([Initial Discussion],[Credit Analysis],[Credit Queries],[IM/CC Approved],[IC Approved],
+     [Documentation],[Accepted Sanction],[Modified IC Sanction],[Disbursement],[Dropped])
+     )P  
+     
+     	 IF OBJECT_ID('tempdb..#TempJAnalyst') IS NOT NULL
+	  DROP TABLE #TempJAnalyst
+      SELECT DISTINCT Opportunity_Id,OT.T.value('@JuniorAnalystName', 'varchar(100)') AS 'JuniorAnalyst' INTO #TempJAnalyst
+	  FROM #tempOpportunity  Outer apply OpenTags.nodes('//otag//tags//JuniorAnalystId') AS OT(T)
+	  
+	  IF OBJECT_ID('tempdb..#TempSAnalyst') IS NOT NULL
+	  DROP TABLE #TempSAnalyst
+      SELECT DISTINCT Opportunity_Id,OT.T.value('@SeniorAnalystName', 'varchar(100)') AS 'SeniorAnalyst' INTO #TempSAnalyst
+	  FROM #tempOpportunity  Outer apply OpenTags.nodes('//otag//tags//SeniorAnalystId') AS OT(T)
+	
+	
+	 IF OBJECT_ID('tempdb..#TempDialData') IS NOT NULL
+	  DROP TABLE #TempDialData
+     SELECT OP.Opportunity_id,O.RM,O.RMName,O.ClientName AS 'Borrower_Name',JA.JuniorAnalyst AS 'Junior_Analyst',SA.SeniorAnalyst AS 'Senior_Analyst',O.OpportunityStatus AS 'Current_Stage',
+     (ISNULL(OP.[Initial Discussion],0)+ISNULL(OP.[Credit Analysis],0)+ISNULL(OP.[Credit Queries],0)+ISNULL(OP.[IM/CC Approved],0)+
+     ISNULL(OP.[IC Approved],0)+ISNULL(OP.[Documentation],0)+ISNULL(OP.[Accepted Sanction],0)+ISNULL(OP.[Modified IC Sanction],0)+
+     ISNULL(OP.[Disbursement],0)+ISNULL(OP.[Dropped],0)) AS 'TotalAging',O.OpportunityValue As 'Value',
+     ISNULL(OP.[Initial Discussion],0) AS 'Initial_Discussion_Aging',ISNULL(OP.[Credit Analysis],0) AS 'Credit_Analysis_Aging',
+     ISNULL(OP.[Credit Queries],0) AS 'Credit_Queries_Aging',ISNULL(OP.[IM/CC Approved],0) AS 'IMCC_Approved_Aging',ISNULL(OP.[IC Approved],0) AS 'IC_Approved_Aging',
+     ISNULL(OP.[Documentation],0) AS 'Documentation_Aging',ISNULL(OP.[Accepted Sanction],0) AS 'Accepted_Sanction_Aging',
+     ISNULL(OP.[Modified IC Sanction],0) AS 'Modified_IC_Sanction_Aging',ISNULL(OP.[Disbursement],0) AS 'Disbursement_Aging',ISNULL(OP.[Dropped],0) AS 'Dropped_Aging',
+     O.MasterTags.value('(tags/RiskCategory/node())[1]','varchar(100)') AS 'RiskCategory',(ISNULL(OP.[Dropped],0)+ISNULL(OP.[IM/CC Approved],0)+ISNULL(OP.[IC Approved],0)+
+     ISNULL(OP.[Documentation],0)+ISNULL(OP.[Disbursement],0)) AS 'icstatus' INTO #TempDialData
+     FROM #TempOppPivot OP LEFT JOIN #tempOpportunity O ON OP.Opportunity_Id=O.Opportunity_Id
+     LEFT JOIN (
+     	 SELECT Opportunity_Id,STUFF((SELECT ', ' + CAST(JuniorAnalyst AS VARCHAR(100)) [text()]
+         FROM #TempJAnalyst 
+         WHERE Opportunity_Id = A.Opportunity_Id
+         FOR XML PATH(''), TYPE).value('.','NVARCHAR(MAX)'),1,2,' ') AS 'JuniorAnalyst'
+		 FROM #TempJAnalyst A
+		 GROUP BY Opportunity_Id
+     ) JA ON JA.Opportunity_Id=OP.Opportunity_Id
+     LEFT JOIN (
+		SELECT Opportunity_Id,STUFF((SELECT ', ' + CAST(SeniorAnalyst AS VARCHAR(100)) [text()]
+         FROM #TempSAnalyst 
+         WHERE Opportunity_Id = A.Opportunity_Id
+         FOR XML PATH(''), TYPE).value('.','NVARCHAR(MAX)'),1,2,' ') AS 'SeniorAnalyst'
+		 FROM #TempSAnalyst A
+		 GROUP BY Opportunity_Id
+     )SA ON SA.Opportunity_Id=OP.Opportunity_Id 
+     
+     --SELECT * FROM #TempDialData WHERE (@totalaging IS NULL OR TotalAging >=@totalaging)
+     --AND (@icstatus IS NULL OR [icstatus] =@icstatus)
+     SELECT Opportunity_id,RMName,ISNULL(Borrower_Name,'') AS 'Borrower_Name',ISNULL(RiskCategory,'') AS 'RiskCategory',Value,Current_Stage,RM,Junior_Analyst,Senior_Analyst,TotalAging,Initial_Discussion_Aging,
+		Credit_Analysis_Aging,Credit_Queries_Aging,IMCC_Approved_Aging,IC_Approved_Aging,Documentation_Aging,Accepted_Sanction_Aging,
+		Modified_IC_Sanction_Aging,Disbursement_Aging,Dropped_Aging,icstatus FROM #TempDialData  WHERE (@totalaging IS NULL OR TotalAging >=@totalaging)
+		AND (@icstatus IS NULL OR [icstatus] =@icstatus)
+END 
