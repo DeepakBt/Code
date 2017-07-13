@@ -394,3 +394,285 @@ BEGIN
 		Modified_IC_Sanction_Aging,Disbursement_Aging,Dropped_Aging,icstatus FROM #TempDialData  WHERE (@totalaging IS NULL OR TotalAging >=@totalaging)
 		AND (@icstatus IS NULL OR [icstatus] =@icstatus)
 END 
+
+
+------------Destiny
+ /************************************************************************                                                                              
+ '     Object Name   : TestDestiny                                  
+ '     Purpose       : 
+ '     Author        : Deepak
+ '     Creation Date : 
+ '	   Test 
+ '
+************************************************************************/                                 
+ALTER PROC [dbo].[TestDestiny]
+AS
+BEGIN TRY                           
+	DECLARE @ErrorMessage NVARCHAR(4000),@ErrorSeverity INT,@ErrorState INT,@MinDate VARCHAR(15),@ZoneRegionBrokerMaxDate DATETIME,@Inst_Id INT,
+	@BranchMaxDate DATETIME,@UserMaxDate DATETIME,@RMMaxDate DATETIME
+	SET @Inst_Id=4
+	--SELECT TOP 10 * FROM TestDestiny.tblSubbrokerMaster
+	--SELECT TOP 10 * FROM TestDestiny.tblSubBrokerAddressDetails 
+	--SELECT TOP 10 * FROM TestDestiny.tblBranchMaster
+	
+	IF (SELECT DATEDIFF(D,MIN(CreatedOn),GETDATE()) FROM Tbl_Destiny_SubBrokerMaster_Stagging)>7
+	BEGIN
+		SELECT  @MinDate=CONVERT(VARCHAR(15),MIN(CreatedOn),106) FROM Tbl_Destiny_SubBrokerMaster_Stagging
+		DELETE FROM Tbl_Destiny_SubBrokerMaster_Stagging WHERE CONVERT(VARCHAR(15),CreatedOn,106)=@MinDate
+		DELETE FROM Tbl_Destiny_RM_Mapping WHERE CONVERT(VARCHAR(15),CreatedOn,106)=@MinDate
+		DELETE FROM Tbl_Destiny_EmpId WHERE CONVERT(VARCHAR(15),CreatedOn,106)=@MinDate
+		DELETE FROM Tbl_Destiny_BranchMaster WHERE CONVERT(VARCHAR(15),CreatedOn,106)=@MinDate
+	END
+	SELECT @ZoneRegionBrokerMaxDate=MAX(CreatedOn) FROM Tbl_Destiny_SubBrokerMaster_Stagging
+	SELECT @BranchMaxDate=MAX(CreatedOn) FROM Tbl_Destiny_SubBrokerMaster_Stagging
+	SELECT @UserMaxDate=MAX(CreatedOn) FROM Tbl_Destiny_EmpId
+	SELECT @RMMaxDate=MAX(CreatedOn) FROM Tbl_Destiny_RM_Mapping
+	--Insert Tbl_Destiny_SubBrokerMaster_Stagging From Destiny DB tblSubbrokerMaster
+	INSERT INTO Tbl_Destiny_SubBrokerMaster_Stagging(SubBrokerId,SubBrokerCode,PSubCode,SubBrokerName,ContactPerMob,EmailID,ContactPerName,BranchId,
+	BranchName,StatusOfApplicant,PAN,PerAdd1,PerPin,PerCity,PerState,PerCountry,CreatedOn)
+	SELECT DISTINCT SBM.SubBrokerId,SBM.SubBrokerCode,PSC.SubBrokerCode,SBM.SubBrokerName,SBM.ContactPerMob,SBM.EmailID,SBM.ContactPerName,SBM.BranchId,BM.BranchName,
+	SBM.StatusOfApplicant,SBM.PAN,SBA.PerAdd1,SBA.PerPin,SBA.PerCity,SBA.PerState,SBA.PerCountry,GETDATE() AS 'CreatedOn' 
+	FROM TestDestiny.tblSubbrokerMaster SBM 
+	LEFT JOIN TestDestiny.tblSubBrokerAddressDetails SBA ON SBM.SubBrokerId=SBA.SubBrokerId
+	LEFT JOIN TestDestiny.tblBranchMaster BM ON SBM.BranchId=BM.BranchId 
+	LEFT JOIN TestDestiny.tblSubbrokerChildMapping PSUB ON PSUB.ParentSubBrokerId=SBM.SubBrokerId 
+	AND PSUB.ChildSubBrokerId=SBM.SubBrokerId
+	LEFT JOIN TestDestiny.tblSubbrokerMaster PSC ON PSC.SubBrokerId=PSUB.ParentSubBrokerId
+	--Insert Tbl_Destiny_RM_Mapping From Destiny DB tblSubbrokerRMMapping
+	INSERT INTO Tbl_Destiny_RM_Mapping(SubBrokerId,EmployeeId,CreatedOn)
+	SELECT SubBrokerId,EmployeeId,GETDATE() AS 'CreatedOn' 
+	FROM EDEMUMFPDPRDB01.OptiCloudLiveDB.dbo.tblSubbrokerRMMapping
+	
+	--Insert Tbl_Destiny_EmpId From Destiny DB tblEmployeeMaster
+	INSERT INTO Tbl_Destiny_EmpId(EmpId,CreatedOn)
+	SELECT EmpId,GETDATE() AS 'CreatedOn' FROM TestDestiny.tblEmployeeMaster
+	
+	--Insert Tbl_Destiny_BranchMaster From Destiny DB tblBranchMaster
+	INSERT INTO Tbl_Destiny_BranchMaster (BranchId,BranchName,CreatedOn)
+	SELECT BranchId,BranchName,GETDATE() AS 'CreatedOn' FROM TestDestiny.tblBranchMaster
+	
+	--Insert TagMaster Zone
+	INSERT INTO TagMaster (TagType,tagName,tagvalue,TagParent,MasterTags,Inst_Id,TagIsActive,UpdatedBy,UpdatedDTM)
+	SELECT DISTINCT 'Zone',RTRIM(LTRIM(PerState)),0,0,'<tag><ZoneCode></ZoneCode></tag>',@Inst_Id,1,0,GETDATE() 
+	FROM Tbl_Destiny_SubBrokerMaster_Stagging ZS 
+	LEFT JOIN TagMaster TM ON ZS.PerState=TM.tagName AND TM.TagType='Zone' AND TM.Inst_Id=@Inst_Id
+	WHERE CreatedOn>@ZoneRegionBrokerMaxDate AND TM.tagName IS NULL AND ISNULL(ZS.PerState,'')<>''
+	
+	--Insert TagMaster Region
+	INSERT INTO TagMaster (TagType,tagName,tagvalue,TagParent,MasterTags,Inst_Id,TagIsActive,UpdatedBy,UpdatedDTM)
+	SELECT DISTINCT 'Region',RTRIM(LTRIM(PerState)),0,0,'<tag><RegionCode></RegionCode></tag>',@Inst_Id,1,0,GETDATE() 
+	FROM Tbl_Destiny_SubBrokerMaster_Stagging ZS 
+	LEFT JOIN TagMaster TM ON ZS.PerState=TM.tagName AND TM.TagType='Region' AND TM.Inst_Id=@Inst_Id
+	WHERE ZS.CreatedOn>@ZoneRegionBrokerMaxDate AND TM.tagName IS NULL AND ISNULL(ZS.PerState,'')<>''
+	
+	--Insert TagMaster Branch
+	INSERT INTO TagMaster (TagType,tagName,tagvalue,TagParent,MasterTags,Inst_Id,TagIsActive,UpdatedBy,UpdatedDTM)
+	SELECT DISTINCT 'Branch',RTRIM(LTRIM(BM.BranchName)),0,0,'<tag><BranchCode>'+CAST(BM.BranchId AS VARCHAR(50))+'</BranchCode></tag>',@Inst_Id,1,0,GETDATE() 
+	FROM Tbl_Destiny_BranchMaster BM LEFT Join TagMaster TM ON TM.tagName=BM.BranchName AND TM.TagType='Branch' AND TM.Inst_Id=@Inst_Id
+	WHERE BM.CreatedOn>@BranchMaxDate AND TM.tagName IS NULL AND ISNULL(BM.BranchName,'')<>''
+	
+	--Insert UserMaster	
+	IF OBJECT_ID('tempdb..#TempSubRank') IS NOT NULL                           
+    DROP TABLE #TempSubRank  
+	SELECT *,RANK() OVER(PARTITION BY [SubBrokerId] ORDER BY EmployeeId) AS 'SubBrokerRank' INTO #TempSubRank FROM Tbl_Destiny_RM_Mapping
+	WHERE CreatedOn>@RMMaxDate
+	INSERT INTO UserMaster (LoginId,UserName,inst_id,ParentUserId,email,mobile,isActive,MasterTags,UpdatedBy,UpdatedDTM,Emp_code,IsAdUser)  
+	SELECT DISTINCT AD.[User_Name],AD.Emp_name,@Inst_Id,1,AD.EMAIL,AD.MOBILE,1,'<tags><SubCode>'+CAST(DEM.EmpId AS VARCHAR(100))+'</SubCode></tags>',0
+	,GETDATE(),DEM.EmpId,1 FROM Tbl_Destiny_EmpId DEM 
+	Inner JOIN Employee_ActiveDirectory AD ON CAST(DEM.EmpId AS VARCHAR(20))=AD.Emp_Code 
+ 	Inner JOIN #TempSubRank RM ON DEM.EmpId=RM.EmployeeId AND RM.SubBrokerRank=1
+ 	LEFT JOIN UserMaster UM ON UM.Emp_code=CAST(DEM.EmpId AS VARCHAR(100)) AND UM.Inst_Id=@Inst_Id
+ 	WHERE DEM.CreatedOn>@UserMaxDate AND UM.Emp_code IS NULL AND UM.LoginId IS NULL
+ 	
+ 	--Update ClientMaster
+ 	IF EXISTS(SELECT 1 FROM ClientMaster C Inner Join Tbl_Destiny_SubBrokerMaster_Stagging S 
+ 	ON CAST(S.SubBrokerCode AS VARCHAR(20))=C.UniqueCode WHERE C.Inst_Id=@Inst_Id)
+ 	BEGIN
+ 	Print 'ClientMaster Update Begin'
+		Update CM SET CM.ClientName=LEFT(S.SubBrokerName,200),CM.Category=CASE WHEN S.StatusOfApplicant ='Individual' THEN S.StatusOfApplicant ELSE 'Non-Individual' END,
+		CM.MasterTags='<tags><AutoCode>'+CAST(S.SubBrokerId AS VARCHAR(20))+'</AutoCode>
+		<PSubCode>'+ISNULL(CONVERT(VARCHAR(20),S.PSubCode),'')+'</PSubCode><BranchName>'+ISNULL(S.BranchName,'')+'</BranchName><RegionName>'+ISNULL(S.PerState,'')+'</RegionName>
+		<ZoneName>'+ISNULL(S.PerState,'')+'</ZoneName>
+		<BrokerCategory>'+CASE WHEN S.StatusOfApplicant ='Individual' THEN S.StatusOfApplicant ELSE 'Non-Individual' END+'</BrokerCategory>                  
+		<ClientSource>Broker</ClientSource>
+		<Primary>'+ISNULL(CONVERT(VARCHAR(10),UM.UserId),'')+'</Primary>    
+		<Secondary>'+CAST(ISNULL(NULLIF(CM.MasterTags.value('(tags/Secondary/node())[1]','varchar(100)'),''),'') AS VARCHAR(100))+'</Secondary>
+		<Tertiary>'+CAST(ISNULL(NULLIF(CM.MasterTags.value('(tags/Tertiary/node())[1]','varchar(100)'),''),'') AS VARCHAR(100))+'</Tertiary>                         
+		<Website></Website></tags>',                     
+		CM.Pan=S.Pan,
+		CM.UpdatedDTM =GETDATE(),                
+		CM.UpdatedBy =0
+		FROM ClientMaster CM Inner Join Tbl_Destiny_SubBrokerMaster_Stagging S ON CAST(S.SubBrokerCode AS VARCHAR(20))=CM.UniqueCode
+		LEFT JOIN Tbl_Destiny_SubBrokerMaster_Stagging SP ON SP.SubBrokerId=S.SubBrokerId
+		LEFT JOIN #TempSubRank RM ON RM.SubBrokerId=SP.SubBrokerId AND RM.SubBrokerRank=1
+		LEFT JOIN UserMaster UM ON UM.Emp_code=CAST(RM.EmployeeId AS VARCHAR(20)) 
+		WHERE CM.Inst_Id=@Inst_Id AND ISNULL(SP.SubBrokerCode,'')<>'' AND S.CreatedOn>@ZoneRegionBrokerMaxDate AND ISNULL(S.SubBrokerName,'')<>''
+		AND LEN(S.SubBrokerCode)<=20 AND LEN(ISNULL(S.PAN,''))<=10 
+		Print 'ClientMaster Update End'
+ 	END
+ 	
+ 	--Insert ClientMaster
+ 	
+ 	 IF OBJECT_ID('tempdb..#TempClientData') IS NOT NULL                           
+	 DROP TABLE #TempClientData
+	 Print 'ClientMaster Insert Begin'
+	 SELECT DISTINCT S.SubBrokerId,S.SubBrokerCode,S.PSubCode,S.SubBrokerName,S.ContactPerMob,S.EmailID,S.ContactPerName,S.BranchId,S.BranchName,
+	 S.StatusOfApplicant,S.PAN,S.PerAdd1,S.PerPin,S.PerCity,S.PerState,S.PerCountry,UM.UserId INTO #TempClientData 
+	 FROM Tbl_Destiny_SubBrokerMaster_Stagging S 
+	 LEFT JOIN ClientMaster CM ON S.SubBrokerCode=CM.UniqueCode AND CM.Inst_Id=@Inst_Id
+	 LEFT JOIN Tbl_Destiny_SubBrokerMaster_Stagging SP ON SP.SubBrokerId=S.SubBrokerId
+	 LEFT JOIN #TempSubRank RM ON RM.SubBrokerId=SP.SubBrokerId AND RM.SubBrokerRank=1
+	 LEFT JOIN UserMaster UM ON UM.Emp_code=CAST(RM.EmployeeId AS VARCHAR(20)) and UM.Inst_Id=@Inst_Id
+	 WHERE S.CreatedOn>@ZoneRegionBrokerMaxDate AND ISNULL(S.SubBrokerName,'')<>'' AND CM.UniqueCode IS NULL
+ 	
+	 INSERT INTO ClientMaster (ClientName,Type,Category,Inst_Id,UniqueCode,MasterTags,UpdatedBy,UpdatedDTM,IsActive,ShortName,PAN)   
+	 SELECT LEFT(CD.SubBrokerName,200),'SB',CASE WHEN CD.StatusOfApplicant ='Individual' THEN CD.StatusOfApplicant ELSE 'Non-Individual' END,@Inst_Id,CD.SubBrokerCode,'<tags><AutoCode>'+CAST(CD.SubBrokerId AS VARCHAR(20))+'</AutoCode>                        
+	  <PSubCode>'+ISNULL(CONVERT(VARCHAR(20),CD.PSubCode),'')+'</PSubCode>                        
+	  <BranchName>'+ISNULL(CD.BranchName,'')+'</BranchName>                        
+	  <RegionName>'+ISNULL(CD.PerState,'')+'</RegionName>                        
+	  <ZoneName>'+ISNULL(CD.PerState,'')+'</ZoneName>                        
+	  <BrokerCategory>'+CASE WHEN CD.StatusOfApplicant ='Individual' THEN CD.StatusOfApplicant ELSE 'Non-Individual' END+'</BrokerCategory>              
+	  <ClientSource>Broker</ClientSource>                 
+	  <Primary>'+ISNULL(CONVERT(varchar(10),CD.UserId),'')+'</Primary>                         
+	  <Website></Website></tags>',0,GETDATE(),1,'',CD.PAN FROM #TempClientData CD LEFT JOIN ClientMaster CM ON CD.SubBrokerCode=CM.UniqueCode AND CM.Inst_Id=@Inst_Id
+	  WHERE LEN(CD.SubBrokerCode)<=20 AND LEN(ISNULL(CD.PAN,''))<=10 AND ISNULL(CD.SubBrokerName,'')<>'' AND CM.UniqueCode IS NULL
+	 Print 'ClientMaster Insert End' 
+	 
+	 
+	 Print 'ContactDetails Update Begin'
+	IF OBJECT_ID('tempdb..#TempContactDetails') IS NOT NULL                           
+	DROP TABLE #TempContactDetails  
+	CREATE TABLe #TempContactDetails                       
+	(                        
+	id int identity,                        
+	code varchar(100),                                              
+	Email varchar(100),                        
+	Mobile varchar(100),
+	ParentId BigINt
+	)       
+	  
+	 INSERT into #TempContactDetails  
+	 SELECT DISTINCT S.SubBrokerCode,ISNUll(S.EmailID,''),ISnull(S.ContactPerMob,''),CM.Client_Id FROM Tbl_Destiny_SubBrokerMaster_Stagging S 
+     INNER JOIN ClientMaster CM ON CM.UniqueCode =S.SubBrokerCode  WHERE ISNULL(CM.UniqueCode,'')<>'' AND S.CreatedOn >@ZoneRegionBrokerMaxDate 
+	 --
+	 
+	 UPDATE CD SET CD.Details=TCD.Email,CD.UpdatedBY=0,UpdatedDTM=GETDATE() FROM
+	 ContactDetails CD Inner Join #TempContactDetails TCD ON CD.ParentId=TCD.ParentId AND ParentType='Client'
+	 WHERE CD.Type='Email'
+	 
+	 UPDATE CD SET CD.Details=TCD.Mobile,CD.UpdatedBY=0,UpdatedDTM=GETDATE() FROM
+	 ContactDetails CD Inner Join #TempContactDetails TCD ON CD.ParentId=TCD.ParentId AND ParentType='Client'
+	 WHERE CD.Type='Mobile'
+	Print 'ContactDetails Update END'
+	
+	--Print 'ContactDetails Insert END'
+	--Insert Into ContactDetails(Type,Details,isDefault,ParentType,ParentId,Inst_Id,UpdatedBy,UpdatedDTM)
+	--SELECT 'Email',TCD.Email,0,'Client',TCD.ParentId,4,0,GETDATE() FROM #TempContactDetails TCD 
+	--LEFT JOIN ContactDetails CD ON CD.ParentId=TCD.ParentId AND CD.ParentType='Client'
+	--WHERE CD.ParentId IS NULL AND ISNULL(TCD.Email,'')<>''
+	--Insert Into ContactDetails(Type,Details,isDefault,ParentType,ParentId,Inst_Id,UpdatedBy,UpdatedDTM)
+	--SELECT 'Mobile',TCD.Mobile,0,'Client',TCD.ParentId,4,0,GETDATE() FROM #TempContactDetails TCD 
+	--LEFT JOIN ContactDetails CD ON CD.ParentId=TCD.ParentId AND CD.ParentType='Client'
+	--WHERE CD.ParentId IS NULL AND ISNULL(TCD.Mobile,'')<>''
+
+ --	Print 'ContactDetails Insert End'
+	 
+	--   --Update ContactDetails
+	--Print 'ContactDetails Update Begin'
+	--IF OBJECT_ID('tempdb..#TempContactDetails') IS NOT NULL                           
+	--DROP TABLE #TempContactDetails  
+	--CREATE TABLe #TempContactDetails                       
+	--(                        
+	--id int identity,                        
+	--code varchar(100),                                              
+	--Email varchar(100),                        
+	--Mobile varchar(100)                        
+	--)       
+	  
+	-- INSERT into #TempContactDetails  
+	-- SELECT DISTINCT S.SubBrokerCode,ISNUll(S.EmailID,''),ISnull(S.ContactPerMob,'') FROM Tbl_Destiny_SubBrokerMaster_Stagging S
+ --    INNER JOIN ClientMaster CM ON CM.UniqueCode =S.SubBrokerCode WHERE S.CreatedOn >@ZoneRegionBrokerMaxDate    
+	 
+	-- UPDATE ContactDetails SET Details = CC.Details ,Inst_Id= @Inst_Id,UpdatedDTM=GETDATE() FROM                  
+	--(SELECT  X.Type, Details,0 isDefault,'Client' ParentType,C.Client_Id ParentId,@Inst_Id Inst_Id,0 UpdatedBy,GETDATE() UpdatedDTM FROM (
+	--SELECT code,Type,Details FROM #TempContactDetails                        
+ --   UNPIVOT 
+	--(                        
+	--Details                        
+	--for Type IN (Email,Mobile)                        
+	--) u)X,ClientMaster C        
+ --   WHERE C.UniqueCode =X.code AND C.Inst_Id=@Inst_Id)CC where CC.ParentId = ContactDetails.ParentId and CC.Type = ContactDetails.Type
+	--Print 'ContactDetails Update end'
+	
+	-- --Insert ClientDetails
+	-- Print 'ContactDetails Insert Begin'
+	--INSERT INTO ContactDetails(Type,Details,isDefault,ParentType,ParentId,Inst_Id,UpdatedBy,UpdatedDTM)   
+	--SELECT  X.Type AS 'Type', Details,0 isDefault,'Client' ParentType,C.Client_Id ParentId,@Inst_Id Inst_Id,0 UpdatedBy,GETDATE() UpdatedDTM FROM (                        
+	--SELECT code, Type, Details    
+	--FROM #TempContactDetails                        
+	--unpivot                        
+	--(                        
+	--Details                        
+ --   for Type in (Email,Mobile)                        
+	--) u)X,ClientMaster C                        
+ --  WHERE C.UniqueCode =X.code AND C.Inst_Id=@Inst_Id AND NOT Exists (SELECT CD.ParentId FROM ContactDetails CD                      
+ --  WHERE  ISNUll(Cd.ParentId,0)=C.Client_Id and CD.ParentType='Client')    
+ --	Print 'ContactDetails Insert End'
+ 
+   Print 'Insert ContactDetails Start'
+ 		IF OBJECT_ID('tempdb..#TempC') IS NOT NULL                           
+	DROP TABLE #TempC  
+	SELECT  X.Type AS 'Type', Details,0 isDefault,'Client' ParentType,C.Client_Id ParentId,@Inst_Id Inst_Id,0 UpdatedBy,GETDATE() UpdatedDTM INTO #TempC FROM (                        
+	SELECT code, Type, Details    
+	FROM #TempContactDetails                        
+	unpivot                        
+	(                        
+	Details                        
+    for Type in (Email,Mobile)                        
+	) u)X,ClientMaster C                        
+	WHERE C.UniqueCode =X.code AND C.Inst_Id=@Inst_Id
+	
+	INSERT INTO ContactDetails(Type,Details,isDefault,ParentType,ParentId,Inst_Id,UpdatedBy,UpdatedDTM) 
+	SELECT DISTINCT TCD.* FROM #TempC TCD 
+	LEFT JOIN ContactDetails CD ON CD.ParentId=TCD.ParentId AND CD.ParentType='Client'
+	WHERE CD.ParentId IS NULL AND ISNULL(TCD.Details,'')<>'' AND LEN(TCD.Details)>5
+    Print 'Insert ContactDetails END'
+ 	--Update Address    
+ 	Print 'Address Update Begin'     
+	UPDATE Address Set Add1 =S.PerAdd1,City=S.PerCity,State=S.PerState,PinCode=S.PerPin,UpdatedBy=0,UpdatedDTM=GETDATE(),Country=S.PerCountry                         
+    FROM ClientMaster C,Tbl_Destiny_SubBrokerMaster_Stagging S                        
+    WHERE C.UniqueCode =S.SubBrokerCode AND ISNULL(C.UniqueCode,'')<>'' AND C.Client_Id = parentId AND ParentType='Client' 
+    AND C.inst_Id=@Inst_Id AND S.CreatedOn >@ZoneRegionBrokerMaxDate    
+    Print 'Address Update End'
+    --INsert Address
+    Print 'Address Insert Begin'
+    INSERT INTO Address (parentId,ParentType,Add1,City,State,PinCode,UpdatedBy,UpdatedDTM,Inst_Id,IsActive,Country)                    
+	SELECT C.Client_Id,'Client',S.PerAdd1,S.PerCity,S.PerState,S.PerPin,0,GETDATE(),@Inst_Id,1,S.PerCountry
+	FROM ClientMaster C INNER JOIN Tbl_Destiny_SubBrokerMaster_Stagging S  ON C.UniqueCode=S.SubBrokerCode
+	WHERE C.Client_Id NOT IN (SELECT parentid FROM ADDRESS) AND C.Inst_Id=@Inst_Id  AND S.CreatedOn >@ZoneRegionBrokerMaxDate   
+    Print 'Address Insert End'
+   --UPDATE CONTACTS                        
+    Print 'Contact Update Begin'                   
+   UPDATE Contacts set ContactName = S.ContactPerName,UpdatedBy=0,UpdatedDTM=GETDATE()                         
+   FROM ClientMaster C                    
+   INNER JOIN Tbl_Destiny_SubBrokerMaster_Stagging S ON C.UniqueCode = S.SubBrokerCode                  
+   INNER JOIN Contacts co On ISNULL(Co.ParentId,'')=C.Client_Id                
+   WHERE EXISTS(SELECT parentId from Contacts Co WHERE ISNULL(Co.ParentId,'')=C.Client_Id AND Co.ParentType='Client' AND Co.Inst_Id=4) AND                
+   ISNULL(S.ContactPerName,'')<>'' AND S.StatusOfApplicant <> 'Individual' AND C.Inst_Id=4 AND S.CreatedOn >@ZoneRegionBrokerMaxDate    
+    Print 'Contact Update End'
+    --Insert Contact
+    Print 'Contact Insert Begin'
+	INSERT INTO Contacts (ContactName,parentId,ParentType,UpdatedBy,UpdatedDTM,Inst_Id,IsActive)                       
+	SELECT S.ContactPerName,C.Client_Id,'Client',0,GETDATE(),4,1 FROM ClientMaster C                    
+	INNER JOIN Tbl_Destiny_SubBrokerMaster_Stagging S ON C.UniqueCode = S.SubBrokerCode                    
+	WHERE NOT EXISTS(SELECT parentId FROM Contacts Co WHERE ISNULL(Co.ParentId,'')=c.Client_Id and Co.ParentType='Client')                 
+	AND ISNULL(S.ContactPerName,'')!='' AND ISNULL(S.StatusOfApplicant,'') <> 'Individual' AND S.CreatedOn >@ZoneRegionBrokerMaxDate 
+	Print 'Contact Insert End'  
+END TRY
+BEGIN CATCH
+	SELECT @ErrorMessage=ERROR_MESSAGE(),@ErrorSeverity=ERROR_SEVERITY(),@ErrorState=ERROR_STATE()                              
+	RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);           
+	Print 'Error : '+@ErrorMessage
+    
+END CATCH
+
