@@ -1,0 +1,78 @@
+--Select * INTO #TempTicket FROM 
+--(
+--	Select TicketId,Status,UpdatedDTM from Tickets 
+--	Union ALL
+--	Select TicketId,LastStatus,LastUpdatedDTM from TicketHistory 
+--)T
+
+	--IF OBJECT_ID('Ticket_TestHold') IS NOT NULL                                 
+	--DROP TABLE Ticket_TestHold
+--Select ROW_NUMBER() OVER (ORDER BY TicketId,UpdatedDTM) AS Id,* Into Ticket_TestHold from #TempTicket Order by TicketId,UpdatedDTM
+
+
+--CREATE TABLE TicketHoldCount
+--(
+--TicketId BIGINT,
+--HoldCount Int
+--)
+
+--Select * from TicketHoldCount
+--Select * from Ticket_TestHold where Status ='Hold'
+--Select * from Ticket_TestHold
+--Select Distinct ROW_NUMBER() OVER (ORDER BY TicketId) AS Rowno,TicketId INTO #TempTicketId from Ticket_TestHold order by Ticketid
+--Select * from #TempTicketId
+	IF OBJECT_ID('tempdb..#TempTicket') IS NOT NULL                                 
+	DROP TABLE #TempTicket
+	SELECT DISTINCT TicketId INTO #TempTicket FROM Ticket_TestHold ORDER BY TicketId 
+	IF OBJECT_ID('tempdb..#TempTicketId') IS NOT NULL                                 
+	DROP TABLE #TempTicketId
+	SELECT DISTINCT ROW_NUMBER() OVER (ORDER BY TicketId) AS Rowno,TicketId INTO #TempTicketId FROM #TempTicket ORDER BY Ticketid
+	--Select * from #TempTicketId
+	DECLARE @MaxCount BIGINT,@Counter BIGINT,@TicketId BIGINT,@StartDate DATETIME,@Status VARCHAR(100),@UpdatedDTM DATETIME,@PreviousTicketId BIGINT,
+		@HoldCount INT,@MaxTicketId BIGINT,@MinTicketid BIGINT,@FinalHoldCount int =0,@OuterRowNo BIGINT,@OuterTicketId BIGINT,
+		@MaxOuterRowNo BIGINT,@InnerCounter BIGINT,@MaxInnerCount BIGINT
+	SELECT @MaxCount=MAX(Id) FROM Ticket_TestHold
+	SELECT @MinTicketid=MIN(TicketId),@MaxTicketId=MAX(TicketId),@MaxOuterRowNo=MAX(RowNo) FROM #TempTicketId 
+	SET @OuterRowNo=1
+
+	IF OBJECT_ID('tempdb..#TempTicketRank') IS NOT NULL                                 
+	DROP TABLE #TempTicketRank
+	SELECT DENSE_RANK () OVER(PARTITION BY TicketId ORDER BY Id) AS Rank,* INTO #TempTicketRank FROM Ticket_TestHold 
+	--Select * from #TempTicketRank
+	WHILE (@OuterRowNo<=@MaxOuterRowNo)  ---- outer loop
+	--WHILE (@MinTicketid<=@MaxTicketId)
+		BEGIN 
+		select @MinTicketid=TicketId from #TempTicketId where Rowno =@OuterRowNo 
+			SELECT @MaxInnerCount=COUNT(TicketId),@OuterTicketId=TicketId FROM #TempTicketRank WHERE TicketId=@MinTicketid Group By TicketId
+			SET @InnerCounter=1
+			SET @StartDate=NULL
+			PRINT  'Outer StartDate ' +ISNULL(COnvert(VARCHAR(11),@StartDate,106),'')
+				WHILE (@InnerCounter<=@MaxInnerCount)   --- inner loop
+					BEGIN
+						SELECT @TicketId=TicketId,@Status=Status,@UpdatedDTM=UpdatedDTM FROM #TempTicketRank WHERE [Rank]=@InnerCounter AND TicketId=@MinTicketid
+						--Select * from #TempTicketRank
+						IF (@Status='Hold' AND @StartDate IS NULL)
+							BEGIN
+								SET @StartDate=@UpdatedDTM
+								PRINT  'Inner Hold StartDate ' +ISNULL(COnvert(VARCHAR(11),@StartDate,106),'')
+							END
+						IF (@Status<>'Hold' AND @StartDate IS NOT NULL)
+							BEGIN
+								SET @HoldCount=DATEDIFF(D,@StartDate,@UpdatedDTM)
+								PRINT  'HoldCount '+CAST(@HoldCount AS VARCHAR(50))+ ' Inner NON-Hold StartDate ' +ISNULL(COnvert(VARCHAR(11),@StartDate,106),'')+ ' Inner NON-Hold UpdatedDTM ' +ISNULL(COnvert(VARCHAR(11),@UpdatedDTM,106),'')
+							IF @HoldCount>=1
+								BEGIN
+									Insert Into TicketHoldCount Values(@TicketId,@HoldCount)
+									PRINT  'HoldCount Inserted '+CAST(@HoldCount AS VARCHAR(50))
+								END
+							SET @StartDate=NULL
+							PRINT  'Inner Hold StartDate After null ' +ISNULL(COnvert(VARCHAR(11),@StartDate,106),'')
+						END	
+					PRINT 'TikcetId '+ CAST(@TicketId AS VARCHAR(50)) + ' Internal Counter '+CAST(@InnerCounter AS VARCHAR(50))+ ' StartDate '+ISNULL(CONVERT(VARCHAR(15),@StartDate,106),'') + ' @HoldCount '+ ISNULL(CAST(@HoldCount AS VARCHAR(50)),'0')
+					SET @InnerCounter =@InnerCounter+1
+				END
+			PRINT 'MinTicketId '+CAST(@MinTicketid AS VARCHAR(50))
+		SET @OuterRowNo=@OuterRowNo+1
+	END
+
+	
