@@ -8,3 +8,127 @@ http://sqlhints.com/tag/time-in-12-hour-format/
 
 SELECT DATENAME(DW,GETDATE())
 SELECT LTRIM(RIGHT(CONVERT(VARCHAR(20), GETDATE(), 100), 7))
+
+
+------------------------------------------------------last day-------------------------------------------------------------
+USE [FROLIC]
+GO
+/****** Object:  StoredProcedure [dbo].[USP_GetWinnerList]    Script Date: 08/04/2017 11:12:46 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+/************************************************************************                                                                                                                                                                                      
+ '     Object Name   : USP_GetWinnerList
+ '     Purpose       : To Get Winner List
+ '     Author        : Deepak
+ '     Creation Date : 3 Aug 2017
+ ------------------------------------------------------------------------
+ For Test:- 
+************************************************************************/           
+
+DECLARE @GameID INT,@UserId INT,@ParamXML XML
+SET @GameID=19
+SET @UserId=299
+SET @ParamXML='<NewDataSet></NewDataSet>'
+                  
+ DECLARE @I INT                                                         
+    EXEC sp_xml_preparedocument @I OUTPUT, @ParamXML;          
+	IF OBJECT_ID('tempdb..#tbl_XML_Data') IS NOT NULL                           
+		DROP TABLE #tbl_XML_Data                           
+	SELECT *  INTO #tbl_XML_Data  FROM OPENXML (@I, 'NewDataSet', 2)                          
+	WITH                          
+	(          
+	winningflag VARCHAR(100)
+	)
+	EXEC sp_xml_removedocument @I;            
+		DECLARE @winningflag VARCHAR(100),@DailyWinnerDate VARCHAR(15),@CurrentDate DATETIME,@LastFriday DATETIME,@NationalQualifierDate VARCHAR(15);
+		SELECT @winningflag=winningflag FROM #tbl_XML_Data
+		DECLARE @WinnerAnnounceTime AS TIME,@CurrentTime AS TIME
+		SET @WinnerAnnounceTime='12:1:00.0000000'
+		SET @CurrentTime=CONVERT(TIME,GETDATE())
+		SET @DailyWinnerDate=CASE WHEN @CurrentTime>=@WinnerAnnounceTime THEN CONVERT(VARCHAR(11),GETDATE(),106)
+							      ELSE CONVERT(VARCHAR(11),GETDATE()-1,106) 
+							 END
+		SET @NationalQualifierDate=CASE WHEN @CurrentTime>=@WinnerAnnounceTime THEN CONVERT(VARCHAR(11),GETDATE(),106)
+							            ELSE CONVERT(VARCHAR(11),GETDATE()-1,106) 
+								   END
+		
+		--SELECT @LastFriday= CASE WHEN DATENAME(WEEKDAY, GETDATE()) = 'Friday' AND @CurrentTime>=@WinnerAnnounceTime THEN
+		--							  DATEADD(d,-((DATEPART(WEEKDAY,GETDATE())+1+@@DATEFIRST)%7),GETDATE())
+		--					ELSE
+		--							  DATEADD(DAY,-7,GETDATE())
+		--				    END 
+		
+			SELECT @LastFriday= CASE WHEN DATENAME(WEEKDAY, GETDATE()) = 'Friday' AND @CurrentTime<=@WinnerAnnounceTime THEN
+									DATEADD(DAY,-7,GETDATE())
+								ELSE
+									CASE WHEN DATEPART(WEEKDAY, GETDATE()) >5 THEN DATEADD(DAY, +4, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+									ELSE DATEADD(DAY, -3, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+									END
+								END
+				
+		--SELECT @LastFriday=CASE WHEN DATEPART(WEEKDAY, GETDATE()) >5 THEN DATEADD(DAY, +4, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+		--						ELSE DATEADD(DAY, -3, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+		--					END
+		-----------------------------------------------------------------------------------------------------------------------------------------------
+		
+		--SELECT CASE WHEN DATEPART(WEEKDAY, GETDATE()) >5 THEN DATEADD(DAY, +4, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+		--						ELSE DATEADD(DAY, -3, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+		--					END
+							
+		--SELECT CASE WHEN DATEPART(WEEKDAY, GETDATE()) >5 THEN DATEADD(DAY, +4, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+		--						ELSE DATEADD(DAY, -3, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+		--					END							
+		-----------------------------------------------------------------------------------------------------------------------------------------------
+		
+		IF OBJECT_ID('tempdb..#TempWinCategory') IS NOT NULL                           
+		DROP TABLE #TempWinCategory  
+		SELECT * INTO #TempWinCategory FROM
+		(
+		SELECT RLS.UserId,UM.MasterTags.value('(tags/ProfileImage/node())[1]','varchar(400)') AS 'ProfileImage' ,RLS.[Rank],
+		RLS.GameId,UM.UserName,UM.email,RLS.MasterTags.value('(tags/DailyWinner/node())[1]','varchar(15)') AS 'Date',
+		RLS.CurrentPoints,RLS.MasterTags.value('(tags/DTimeTaken/node())[1]','varchar(50)') AS 'TimeTaken',
+		'Daily' AS WinnerCategory  
+		FROM RowLevelSecurity RLS Inner Join UserMaster UM ON UM.UserId=RLS.UserId
+		WHERE RLS.GameId=@GameID AND RLS.MasterTags.value('(tags/DailyWinner/node())[1]','varchar(15)')=@DailyWinnerDate
+		
+		UNION ALL
+		
+		SELECT RLS.UserId,UM.MasterTags.value('(tags/ProfileImage/node())[1]','varchar(400)') AS 'ProfileImage',RLS.[Rank],
+		RLS.GameId,UM.UserName,UM.email,RLS.MasterTags.value('(tags/WeeklyWinner/node())[1]','varchar(15)') AS 'Date',
+		RLS.CurrentPoints,RLS.MasterTags.value('(tags/WTimeTaken/node())[1]','varchar(50)') AS 'TimeTaken',
+		'Weekly' AS WinnerCategory  
+		FROM RowLevelSecurity RLS Inner Join UserMaster UM ON UM.UserId=RLS.UserId
+		WHERE RLS.GameId=@GameID AND RLS.MasterTags.value('(tags/WeeklyWinner/node())[1]','varchar(15)')=@LastFriday
+		
+		UNION ALL
+		
+		SELECT RLS.UserId,UM.MasterTags.value('(tags/ProfileImage/node())[1]','varchar(400)') AS 'ProfileImage',RLS.[Rank],
+		RLS.GameId,UM.UserName,UM.email,RLS.MasterTags.value('(tags/NationalQualifier/node())[1]','varchar(15)') AS 'Date',
+		RLS.CurrentPoints,RLS.MasterTags.value('(tags/NTimeTaken/node())[1]','varchar(50)') AS 'TimeTaken',
+		'NationalQualifier' AS WinnerCategory  
+		FROM RowLevelSecurity RLS Inner Join UserMaster UM ON UM.UserId=RLS.UserId
+		WHERE RLS.GameId=@GameID AND RLS.MasterTags.value('(tags/NationalQualifier/node())[1]','varchar(15)')=@NationalQualifierDate
+		)T
+		
+		SELECT * FROM #TempWinCategory WHERE ISNULL(@winningflag,WinnerCategory)=WinnerCategory
+
+
+
+RETURN
+
+--DECLARE @WinnerAnnounceTime AS TIME
+--	SET @WinnerAnnounceTime=CONVERT(TIME,GETDATE())
+--	IF @WinnerAnnounceTime>='13:02:00.0000000'
+--	BEGIN
+--		Print 'NewDate'
+--	END
+--	ELSE
+--	BEGIN
+--		PRINT 'OLDDATE'
+--	END
+
+--Select CONVERT(TIME,GETDATE()) 
+ 
