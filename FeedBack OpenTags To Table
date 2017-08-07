@@ -1,0 +1,58 @@
+
+  IF OBJECT_ID('tempdb..#TempFeedBack') IS NOT NULL                             
+  DROP TABLE #TempFeedBack   
+SELECT * INTO #TempFeedBack FROM 
+(
+	SELECT QM.QuestionSetMappingId,QM.QuestionSetId,QM.QuestionId FROM TagMaster TM 
+	LEFT JOIN TagMaster TMM ON TMM.TagParent =TM.TagId
+	RIGHT JOIN QuestionSetMapping QM ON QM.QuestionSetId=TMM.MasterTags.value('(tags/QuestionSetNameId/node())[1]','varchar(100)') 
+	WHERE TMM.TagType='RelationType' AND TM.TagId=660535
+	AND TM.Inst_Id=20 AND TMM.tagName='Cashless'
+	UNION
+	SELECT DISTINCT Q.QuestionSetMappingId,QT.QuestionSetId,Q.QuestionId FROM QuestionSetMapping Q Left JOIN
+	(
+	SELECT QM.QuestionSetMappingId,F.V.value('@QuestionSetId', 'varchar(max)') AS 'QuestionSetId'
+	FROM QuestionSetMapping AS QM
+	CROSS APPLY QM.ActionMapping.nodes('otag/tags/Actionable') AS F(V)
+	WHERE F.V.value('.','nvarchar(100)')='QuestionSet' AND QM.Inst_Id=20
+	)QT ON Q.QuestionSetId=QT.QuestionSetId WHERE QT.QuestionSetId IS NOT NULL
+	
+)T	
+
+	IF OBJECT_ID('tempdb..#TempService') IS NOT NULL                             
+	DROP TABLE #TempService
+		SELECT DISTINCT QM.QuestionSetMappingId,QM.QuestionId,F.V.value('@Value', 'varchar(max)') AS 'Value',
+		F.V.value('.','nvarchar(100)') AS 'ServiceMapping' INTO #TempService
+		FROM QuestionSetMapping AS QM
+		CROSS APPLY QM.ServiceLevelMapping.nodes('otag/tags/ServiceMapping') AS F(V)
+		WHERE QM.Inst_Id=20
+	
+	IF OBJECT_ID('tempdb..#TempSentiment') IS NOT NULL                             
+	DROP TABLE #TempSentiment
+		SELECT DISTINCT QM.QuestionSetMappingId,QM.QuestionId,F.V.value('@Value', 'varchar(max)') AS 'Value',
+		F.V.value('.','nvarchar(100)') AS 'Sentiment' INTO #TempSentiment
+		FROM QuestionSetMapping AS QM
+		CROSS APPLY QM.SentimentMapping.nodes('otag/tags/Sentiment') AS F(V)
+		WHERE QM.Inst_Id=20
+
+SELECT DISTINCT FB.FeedBackDate,CM.Client_Id,CM.ClientName,F.*,TMQ.tagName AS 'Question',TMA.tagName AS 'AnswerType',
+ISNULL(FB.MasterTags.value('(tags/Feedback/node())[1]','varchar(100)'),'') AS 'Answer',FB.Remarks,
+I.MasterTags.value('(tags/NPS/node())[1]','varchar(100)') AS 'NPS Rating',QM.CEP,QM.ParentDriver,QM.SubParentDriver,QM.Keyword1,QM.Keyword2,QM.Keyword3,
+ISNULL(FB.MasterTags.value('(tags/TAT/node())[1]','varchar(100)'),'') AS 'TAT',
+ISNULL(TS.ServiceMapping,'') AS 'Service Level',ISNULL(ST.Sentiment,'') AS 'Sentiment Mapping',
+RS.MasterTags.value('(tags/ClaimType/node())[1]','varchar(100)') AS 'Type of Claim',
+RS.MasterTags.value('(tags/ClaimNo/node())[1]','varchar(100)') AS 'policy_number',
+RS.Relation_Details AS 'primary_insured_name'
+FROM #TempFeedBack F
+LEFT JOIN TagMaster TMQ ON TMQ.TagId=F.QuestionId
+LEFT JOIN QuestionSetMapping QM ON QM.QuestionSetMappingId=F.QuestionSetMappingId
+LEFT JOIN TagMaster TMA ON TMA.TagId=QM.ResponseType
+LEFT JOIN Feedback FB ON FB.MasterTags.value('(tags/QuestionSetId/node())[1]','varchar(100)')=F.QuestionSetId AND  FB.QuestionId=F.QuestionId
+LEFT JOIN ClientMaster CM ON CM.Client_Id=FB.ParentId AND FB.ParentType='Client'
+Inner JOIN InteractionParticipants IP ON IP.ParticipantId=CM.Client_Id AND IP.ParticipantType='client'
+Inner JOIN Interactions I ON IP.InteractionId=I.InteractionId AND I.Inst_Id=20
+LEFT JOIN Relationships RS ON RS.parentId=CM.Client_Id AND RS.ParentType='Client'
+LEFT JOIN #TempService TS ON TS.Value=FB.Rating AND FB.QuestionId=TS.QuestionId
+LEFT JOIN #TempSentiment ST ON ST.Value=FB.Rating AND FB.QuestionId=ST.QuestionId
+WHERE FB.Inst_Id=20 AND CM.Inst_Id=20
+Order by FB.FeedBackDate asc
