@@ -1,0 +1,45 @@
+		DECLARE @TimeRemaning AS Time,@TodayDate DateTime,@Tomorrow VARCHAR(20),@NextQuizDate DateTime,@NextQuizDateTime DateTime
+		SET @Tomorrow=DATENAME(DW,DATEADD(D,1,GETDATE()))
+		If @Tomorrow='Saturday'
+		BEGIN
+			SET @NextQuizDate=DATEADD(D,3,GETDATE())
+			Select @StartTime=MasterTags.value('(tags/StartTime/node())[1]','varchar(20)') FROM FeatureMaster WHERE FeatureId=23 AND GameId=19 AND IsActive=1
+			SELECT @NextQuizDateTime=DATEADD(DAY, DATEDIFF(DAY, 0, CONVERT(DATETIME,CONVERT(VARCHAR(11),@NextQuizDate,106))), @StartTime)
+		END
+		ELSE IF @Tomorrow='Sunday'
+		BEGIN
+			SET @NextQuizDate=DATEADD(D,2,GETDATE())
+			Select @StartTime=MasterTags.value('(tags/StartTime/node())[1]','varchar(20)') FROM FeatureMaster WHERE FeatureId=23 AND GameId=19 AND IsActive=1
+			SELECT @NextQuizDateTime=DATEADD(DAY, DATEDIFF(DAY, 0, CONVERT(DATETIME,CONVERT(VARCHAR(11),@NextQuizDate,106))), @StartTime)
+		END
+		ELSE IF @Tomorrow='Monday'
+		BEGIN
+			SET @NextQuizDate=DATEADD(D,1,GETDATE())
+			Select @StartTime=MasterTags.value('(tags/StartTime/node())[1]','varchar(20)') FROM FeatureMaster WHERE FeatureId=23 AND GameId=19 AND IsActive=1
+			SELECT @NextQuizDateTime=DATEADD(DAY, DATEDIFF(DAY, 0, CONVERT(DATETIME,CONVERT(VARCHAR(11),@NextQuizDate,106))), @StartTime)
+		END
+		ELSE IF @Tomorrow='Tuesday'
+		BEGIN
+			SET @NextQuizDate=DATEADD(D,1,GETDATE())
+			Select @StartTime=MasterTags.value('(tags/StartTime/node())[1]','varchar(20)') FROM FeatureMaster WHERE FeatureId=24 AND GameId=19 AND IsActive=1
+			SELECT @NextQuizDateTime=DATEADD(DAY, DATEDIFF(DAY, 0, CONVERT(DATETIME,CONVERT(VARCHAR(11),@NextQuizDate,106))), @StartTime)
+		END
+		ELSE IF @Tomorrow='Wednesday'
+		BEGIN
+			SET @NextQuizDate=DATEADD(D,1,GETDATE())
+			Select @StartTime=MasterTags.value('(tags/StartTime/node())[1]','varchar(20)') FROM FeatureMaster WHERE FeatureId=25 AND GameId=19 AND IsActive=1
+			SELECT @NextQuizDateTime=DATEADD(DAY, DATEDIFF(DAY, 0, CONVERT(DATETIME,CONVERT(VARCHAR(11),@NextQuizDate,106))), @StartTime)
+		END
+		ELSE IF @Tomorrow='Thursday'
+		BEGIN
+			SET @NextQuizDate=DATEADD(D,1,GETDATE())
+			Select @StartTime=MasterTags.value('(tags/StartTime/node())[1]','varchar(20)') FROM FeatureMaster WHERE FeatureId=26 AND GameId=19 AND IsActive=1
+			SELECT @NextQuizDateTime=DATEADD(DAY, DATEDIFF(DAY, 0, CONVERT(DATETIME,CONVERT(VARCHAR(11),@NextQuizDate,106))), @StartTime)
+		END
+		ELSE IF @Tomorrow='Friday'
+		BEGIN
+			SET @NextQuizDate=DATEADD(D,1,GETDATE())
+			Select @StartTime=MasterTags.value('(tags/StartTime/node())[1]','varchar(20)') FROM FeatureMaster WHERE FeatureId=27 AND GameId=19 AND IsActive=1
+			SELECT @NextQuizDateTime=DATEADD(DAY, DATEDIFF(DAY, 0, CONVERT(DATETIME,CONVERT(VARCHAR(11),@NextQuizDate,106))), @StartTime)
+		END
+		SELECT DATEADD(MS, DATEDIFF(MS, GETDATE(), @NextQuizDateTime), 0), 114) AS 'TimeRemaning'
