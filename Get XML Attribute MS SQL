@@ -1,3 +1,22 @@
 SELECT @Rating=OT.T.value('@RatingValue', 'int') 
 FROM TagMaster  cross apply TagMaster.OpenTags.nodes('//otag//tags//Rating') AS OT(T)
 Where OT.T.value('.','nvarchar(100)')=@FeedBackVal AND Inst_Id=Inst_Id AND TagType='Ticket Feedback'
+------------------------------------------------------------------------------------------------------
+
+
+SELECT Distinct TC.tagName AS 'TaskCategory',TM.tagName AS 'TaskSubCategory',TM.MasterTags.value('(tags/TAT/node())[1]','varchar(200)')
+AS 'Total TAT',US.UserName AS 'ShowTo',UE.UserName AS 'EscalateTo',ET.EscalateToTAT FROM tagmaster TM Left Join (
+	SELECT DISTINCT  TMM.Inst_Id,TMM.TagId,CAST(R.U.value('.','nvarchar(100)')AS INT) AS 'ShowTo' 
+    FROM TagMaster TM Inner Join TagMaster TMM ON TM.TagId=TMM.TagId AND TMM.Inst_Id=16
+    CROSS APPLY TM.OpenTags.nodes('/otag/tags[@type="ShowToUser"]/ShowTo') AS R(U) 
+)ST ON TM.TagId=ST.TagId
+LEFT JOIN (
+	SELECT DISTINCT  TMM.Inst_Id,TMM.TagId,CAST(R.U.value('.','nvarchar(100)')AS INT) AS 'EscalateTo',
+	TM.OpenTags.value('(/otag/tags/@TAT)[1]', 'nvarchar(max)')  AS 'EscalateToTAT' 
+    FROM TagMaster TM Inner Join TagMaster TMM ON TM.TagId=TMM.TagId AND TMM.Inst_Id=16
+    CROSS APPLY TM.OpenTags.nodes('/otag/tags/EscalateTo') AS R(U) 
+)ET ON ET.TagId=TM.TagId
+Right JOIN TagMaster TC ON TC.TagId=TM.TagParent
+LEFT Join UserMaster US ON US.UserId=ST.ShowTo
+LEFT JOIN UserMaster UE ON UE.UserId=ET.EscalateTo
+WHERE TM.inst_id=16 and TM.TagType='TaskSubCategory' AND TC.Inst_Id=16
