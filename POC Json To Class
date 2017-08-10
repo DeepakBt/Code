@@ -1,0 +1,30 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace JsonToClass
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string JsonStr = @"{'id':'101164020569151','email':'dhiraj.mishra44\u0040rediffmail.com','name':'Dhiraj Mishra','first_name':'Dhiraj','last_name':'Mishra','link':'https:\/\/www.facebook.com\/app_scoped_user_id\/101164020569151\/','gender':'male','locale':'en_GB','timezone':5.5,'verified':true}";
+            RootObject objClass = Newtonsoft.Json.JsonConvert.DeserializeObject<RootObject>(JsonStr);
+        }
+    }
+
+    public class RootObject
+    {
+        public string id { get; set; }
+        public string email { get; set; }
+        public string name { get; set; }
+        public string first_name { get; set; }
+        public string last_name { get; set; }
+        public string link { get; set; }
+        public string gender { get; set; }
+        public string locale { get; set; }
+        public double timezone { get; set; }
+        public bool verified { get; set; }
+    }
+}
