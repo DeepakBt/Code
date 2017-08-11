@@ -1,0 +1,173 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Data.SqlClient;
+using Microsoft.Office.Interop.Excel;
+using System.IO;
+using System.Configuration;
+using log4net;
+namespace SASCorpDevConsole
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Logger log = new Logger();
+            try
+            {
+                Console.WriteLine("Corp Dev Task Started");
+                log.LogError("Message", "Task Started");
+                string conString, ExcelPath = "";
+                conString = ConfigurationManager.ConnectionStrings["MyCon"].ConnectionString;
+                ExcelPath = ConfigurationManager.AppSettings["CorpExcelFile"].ToString();
+                DataSet dsExcel = new System.Data.DataSet();
+                dsExcel = ExcelToDS(ExcelPath);
+                using (var bulkCopy = new SqlBulkCopy(conString))
+                {
+                    bulkCopy.ColumnMappings.Add(0, "SR NO");
+                    bulkCopy.ColumnMappings.Add(1, "CATEGORY");
+                    bulkCopy.ColumnMappings.Add(2, "FOLIO NO");
+                    bulkCopy.ColumnMappings.Add(3, "SHAREHOLDER'S NAME");
+                    bulkCopy.ColumnMappings.Add(4, "SHARES");
+                    bulkCopy.ColumnMappings.Add(5, "PERCENTAGE");
+                    bulkCopy.ColumnMappings.Add(6, "Date");
+
+                    bulkCopy.BulkCopyTimeout = 600;
+                    bulkCopy.DestinationTableName = "CorpDev";
+                    bulkCopy.WriteToServer(dsExcel.Tables[0]);
+                }
+                log.LogError("Message", "Task End");
+            }
+            catch (Exception Ex)
+            {
+                log.LogError("Error : ", Ex.Message.ToString());
+            }
+        }
+        public static DataSet ExcelToDS(string ExcelLocation)
+        {
+            Logger log = new Logger();
+            DataSet DtSet = new System.Data.DataSet();
+            try
+            {
+
+                string fileExt = "", fileName = "", sheetName = "", fileDate = ""; ;
+                int xlsCount, xlsxCount;
+                DirectoryInfo dir = new DirectoryInfo(ExcelLocation);
+                FileInfo[] Files = dir.GetFiles("*.xlsx");
+                xlsxCount = Files.Count();
+                FileInfo[] exFiles = dir.GetFiles("*.xls");
+                xlsCount = exFiles.Count();
+                if (xlsCount > 1)
+                {
+                    throw new Exception("Contain's more then 1 xls file");
+                }
+                else if (xlsxCount > 1)
+                {
+                    throw new Exception("Contain's more then 1 xlsx file");
+                }
+                else if (xlsxCount > 1 && xlsCount > 1)
+                {
+                    throw new Exception("Contain's more then 1 excel file");
+                }
+                if (Files.Count() > 0)
+                {
+                    fileName = Files[0].Name;
+                }
+                else if (exFiles.Count() > 0)
+                {
+                    fileName = exFiles[0].Name;
+                }
+                string ExcelPath = ExcelLocation + "\\" + fileName;
+                string path = System.IO.Path.GetFullPath(ExcelPath);
+                System.Data.OleDb.OleDbConnection MyConnection;
+                System.Data.OleDb.OleDbDataAdapter CorpDev;
+                fileExt = Path.GetExtension(ExcelPath);
+                sheetName = Path.GetFileNameWithoutExtension(ExcelPath);
+                fileDate = sheetName.Substring(Math.Max(0, sheetName.Length - 8));
+                if (fileExt == ".xlsx")
+                {
+                    MyConnection = new System.Data.OleDb.OleDbConnection("Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + path + ";Extended Properties=Excel 12.0;");
+                }
+                else
+                {
+                    MyConnection = new System.Data.OleDb.OleDbConnection("Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + path + "; Extended Properties=Excel 8.0;");
+                }
+                CorpDev = new System.Data.OleDb.OleDbDataAdapter("select * from [" + sheetName + "$]", MyConnection);
+                CorpDev.TableMappings.Add("Table", "ExcelData");
+                CorpDev.Fill(DtSet);
+                MyConnection.Close();
+                for (int i = DtSet.Tables[0].Rows.Count - 1; i >= 0; i--)
+                {
+                    DataRow dr = DtSet.Tables[0].Rows[i];
+                    if (dr[0].ToString() == "" || dr[0] == null)
+                    {
+                        dr.Delete();
+                    }
+                }
+                foreach (DataRow dr in DtSet.Tables[0].Rows) 
+                {
+                    if (dr.RowState != DataRowState.Deleted)
+                    {
+                        if (dr[0] != null || Convert.ToString(dr[0]) != "")
+                        {
+                            //dr[6] = fileDate;
+                            dr[6] = "";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogError("Error in ExcelToDS : ", ex.Message.ToString());
+            }
+            return DtSet;
+        }
+    }
+}
+------------------------------
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace SASCorpDevConsole
+{
+    public class Logger
+    {
+        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        public void LogError(string LogType, string logStr)
+        {
+            log.Error(LogType + " : " + logStr + ", DateTime : " + DateTime.Now);
+        }
+    }
+}
+-----------------------------------------
+<?xml version="1.0"?>
+<configuration>
+  <configSections>
+    <section name="log4net"
+    type="log4net.Config.Log4NetConfigurationSectionHandler,Log4net"/>
+  </configSections>
+
+  <log4net>
+    <appender name="RollingLogFileAppender" type="log4net.Appender.RollingFileAppender">
+      <file type="log4net.Util.PatternString" value="D:\sas\sasLog.txt" />"
+      <appendToFile value="true" />
+      <rollingStyle value="Size" />
+      <maxSizeRollBackups value="10" />
+      <maximumFileSize value="5MB" />
+      <staticLogFileName value="true" />
+      <countDirection value="1" />
+      <layout type="log4net.Layout.PatternLayout">
+      </layout>
+    </appender>
+    <root>
+      <level value="DEBUG" />
+      <appender-ref ref="RollingLogFileAppender" />
+    </root>
+  </log4net>
+  </configuration>
