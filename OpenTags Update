@@ -1,0 +1,68 @@
+
+--Select * from TagMasterShowTo where CAST(OpenTags AS VARCHAR(max)) Like '%ShowTo%'
+--Select * from #TempSubCategory
+--Select * INTO #TagMasterShowTo From TagMasterShowTo
+
+--SELECT * FROM #TagMasterShowTo TM Inner Join #TempSubCategory SC ON TM.tagName=SC.SubCategory
+--WHERE TM.Inst_Id=4 AND TagType='TaskSubCategory'
+	
+	IF OBJECT_ID('tempdb..#TagMasterShowTo') IS NOT NULL                           
+    DROP TABLE #TagMasterShowTo 
+	SELECT * INTO #TagMasterShowTo From TagMasterShowTo
+	DECLARE @IdMaxCount INT,@IdCount INT,@typeValue VARCHAR(50),@CurrentTagId INT,@Inst_Id INT,@ShowToUser INT,@MaxRank INT,@RankCount INT,@TagId BIGINT
+	SET @IdCount=1
+	SET @typeValue='ShowToUser'
+	SET @Inst_Id=4
+
+	
+	IF OBJECT_ID('tempdb..#TempTag') IS NOT NULL                           
+    DROP TABLE #TempTag
+	SELECT TM.*,SC.LoginId,UM.UserId INTO #TempTag FROM #TagMasterShowTo TM Inner Join #TempSubCategory SC ON TM.tagName=SC.SubCategory
+	LEFT JOIN UserMaster UM ON UM.LoginId=SC.LoginId AND UM.Inst_Id=@Inst_Id
+	WHERE TM.Inst_Id=@Inst_Id AND TagType='TaskSubCategory'
+
+	ALTER TABLE #TempTag
+	ADD ID INT IDENTITY
+	
+	IF OBJECT_ID('tempdb..#TempId') IS NOT NULL                           
+    DROP TABLE #TempId
+    
+	SELECT *,DENSE_RANK()OVER(PARTITION BY TagId ORDER BY Id) AS [Rank] INTO #TempId FROM #TempTag ORDER BY Id
+	
+	SELECT @IdMaxCount=COUNT(ID) FROM #TempId
+
+	WHILE(@IdCount<=@IdMaxCount)
+	BEGIN
+	SELECT @CurrentTagId=TagId From #TempId WHERE ID=@IdCount
+	--Delete Existing ShowTo
+		Update #TagMasterShowTo SET OpenTags.modify('delete //otag/tags[@type=sql:variable("@typeValue")]') 
+		WHERE TagId=@CurrentTagId AND Inst_Id=@Inst_Id AND OpenTags IS NOT NULL 
+		SET @IdCount=@IdCount+1 
+	END
+
+	SET @IdCount=1
+	WHILE(@IdCount<=@IdMaxCount)
+		BEGIN
+		SELECT @TagId=TagId FROM #TempId WHERE ID=@IdCount
+		SELECT @MaxRank=Max([Rank]) FROM #TempId WHERE TagId=@TagId
+		SET @RankCount=1
+		DECLARE @ShowToType XML,@ShowTo VARCHAR(1000)
+		SET @ShowTo=''
+		--Update ShowToUser		
+		WHILE (@RankCount<=@MaxRank)
+			BEGIN
+				SELECT @ShowToUser=UserId From #TempId WHERE TagId=@TagId AND [Rank]=@RankCount
+				--PRINT 'TagId ' + CAST(@TagId AS VARCHAR(200))  + ' ShowToUser ' + CAST(@ShowToUser AS VARCHAR(200)) + ' Rank ' + CAST(@RankCount AS VARCHAR(20))
+				SET @ShowTo=@ShowTo+'<ShowTo>'+CAST(@ShowToUser AS VARCHAR(20))+'</ShowTo>'																	
+				SET @RankCount=@RankCount+1
+				SET @IdCount=@IdCount+1 
+			END
+			PRINT 'TagId '+CAST(@TagId AS VARCHAR(20)) +' '+ @ShowTo
+			SET @ShowToType=CAST('<tags type="ShowToUser">'+CAST(@ShowTo AS VARCHAR(500))+'</tags>' AS XML)
+			
+			UPDATE #TagMasterShowTo SET OpenTags.modify('insert sql:variable("@ShowToType")as last into /otag[1]') 
+			WHERE TagId=@TagId and Inst_Id=@Inst_Id AND OpenTags IS NOT NULL			
+	END
+
+SELECT * FROM #TagMasterShowTo TM Inner Join #TempSubCategory SC ON TM.tagName=SC.SubCategory
+WHERE TM.Inst_Id=4 AND TagType='TaskSubCategory' order by Tagid
