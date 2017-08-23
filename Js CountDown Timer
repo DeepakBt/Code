@@ -1,0 +1,21 @@
+<span id="timer"></span>
+
+
+var timerc = document.getElementById("timer");
+var counter = 10;
+var newElement = document.createElement("p");
+newElement.innerHTML = counter;
+newElement.style.color = "blue";
+newElement.style.fontSize = "xx-large";
+var id;
+timerc.parentNode.replaceChild(newElement, timerc);
+
+id = setInterval(function() {
+    counter--;
+    if(counter < 0) {
+        newElement.parentNode.replaceChild(timerc, newElement);
+        clearInterval(id);
+    } else {
+        newElement.innerHTML = "" + counter.toString() + "";
+    }
+}, 1000);
