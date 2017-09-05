@@ -1,0 +1,304 @@
+
+              
+DECLARE @Inst_Id INT,@UserId int,@ParamXML xml                            
+  SET @Inst_Id=14
+  SET @UserId=1345
+  SET @ParamXML='<NewDataSet><recordcount><![CDATA[10]]></recordcount><parenttype>Client</parenttype><clientsource><![CDATA[broker]]>
+  </clientsource><pageindexno><![CDATA[1]]></pageindexno></NewDataSet>'
+   
+ DECLARE @I INT                                                                                                   
+    EXEC sp_xml_preparedocument @I OUTPUT, @ParamXML;                            
+   IF OBJECT_ID('tempdb..#tbl_XML_Data') IS NOT NULL                                            
+    drop table #tbl_XML_Data                              
+ SELECT *  INTO #tbl_XML_Data  FROM OPENXML (@I, 'NewDataSet', 2)                                 
+ WITH      
+  (  contact_id BigInt,                        
+     contactname varchar(100),                                                              
+     parentid BigInt,                            
+     parenttype varchar(50),                           
+     designation varchar(85),--,LenderCat varchar(1000),LenderSubCat varchar(1000)                    
+     isactive    Bit,                 
+     pageindexno Int,                            
+     recordcount INt,      
+     branchname varchar(200),      
+     contacttype varchar(20),    
+     authorisedsignatory  varchar(20),    
+     mainpointofcontact varchar(100),    
+     typeofcontact varchar(100),                                                                                                              
+     clientsource varchar(100)  
+  )                                                                                                                           
+                              
+ EXEC sp_xml_removedocument @I;                              
+                          
+                       
+                              
+ DECLARE @Contact_Id BigInt,@ContactName varchar(100),@ParentId BigInt,@ParentType varchar(50),@Designation varchar(85)--,@LenderCat varchar(500), @LenderSubCat varchar(500)                          
+ ,@IgnoreSecurity int, @isActive bit,@PageIndexNo int,@recordCount int,@branchName varchar(200),@ContactType varchar(20),@authorisedsignatory varchar(20),    
+ @mainpointofcontact varchar(100),@typeofcontact varchar(100),@clientsource varchar(100)   
+ ,@IgnoreContactSecurity int --Added by pravin rane on 02-Jun-2017  
+                           
+                             
+ select  @Contact_Id=Contact_Id,@ContactName=ContactName,@ParentId=ParentId,@ParentType=ParentType,@Designation=Designation--,@LenderCat=LenderCat,@LenderSubCat=LenderSubCat                           
+ , @isActive=isactive,@PageIndexNo=PageIndexNo,@recordCount=recordCount ,@branchName=branchname ,@ContactType=ContactType,    
+ @authorisedsignatory=authorisedsignatory,@mainpointofcontact=mainpointofcontact,@typeofcontact=typeofcontact,@clientsource=clientsource    
+ from #tbl_XML_Data                            
+                         
+                   
+ /*Modify for parent type as branch to get Parent Type of Branch           -- ParentType=Branch is no longer supported      
+ Declare @ParentTypeModified VARCHAR(20),@ParentIdModified VARCHAR(100)                   
+ set @ParentIdModified=@ParentId                        
+ SET @ParentTypeModified=@ParentType                        
+ IF(@ParentType='branch')                        
+ BEGIN                        
+ select @ParentTypeModified=ParentType,@ParentIdModified=ParentId from BranchMaster where Branch_Id=@ParentId AND Inst_Id=@Inst_Id                         
+ END                        
+END Modify for parent type as branch to get Parent Type of Branch*/                        
+                       
+                       
+IF(ISNULL(@PageIndexNo,0)=0)                                            
+ BEGIN                                            
+ set @PageIndexNo=1;                                             
+ END                                            
+                                             
+IF(ISNULL(@recordCount,0)=0)                                            
+ BEGIN                                            
+ set @recordCount=500;                                             
+ END                     
+    
+  
+    
+ IF OBJECT_ID('tempdb..#Rowlevelsec') IS NOT NULL                                            
+    drop table #Rowlevelsec                                 
+ select * into #Rowlevelsec from rowlevelsecurity   
+ where ParentType=@ParentType AND UserId=@UserId and ISNULL(AccessAllowed,0)=1 AND ISNULL(Inst_Id,0)=@Inst_Id    
+  
+  CREATE NONCLUSTERED INDEX iTemp ON #Rowlevelsec([ParentType],[parentId])
+
+   insert into #Rowlevelsec(UserId,ParentType,parentId,AccessAllowed,UpdatedBy,UpdatedDTM,MasterTags,OpenTags,Inst_Id)  
+    select UserId,ParentType,parentId,AccessAllowed,UpdatedBy,UpdatedDTM,MasterTags,OpenTags,Inst_Id from rowlevelsecurity       
+   where ParentType='Contact' AND UserId=@UserId and ISNULL(AccessAllowed,0)=1 AND ISNULL(Inst_Id,0)=@Inst_Id    
+
+ set @IgnoreSecurity=(select dbo.fun_IsIgnoreRowLevelSecurity(@UserId,@ParentType,@Inst_Id))--(select IgnoreRowLevelSecurity from UserMaster where UserId=1)                            
+   
+  set @IgnoreContactSecurity=(select dbo.fun_IsIgnoreRowLevelSecurity(@UserId,'Contact',@Inst_Id))--Added by pravin rane on 02-Jun-2017  
+                
+         
+    if(@IgnoreSecurity=-1)             
+      set @IgnoreSecurity=0    
+        
+      if(@IgnoreContactSecurity=-1)             
+      set @IgnoreContactSecurity=0                         
+	   IF OBJECT_ID('tempdb..#Contacts') IS NOT NULL                                            
+    drop table #Contacts   
+      select ROW_NUMBER() OVER (ORDER BY cm.ContactName)                                  
+        AS RowIndex,                       
+    isnull(cm.[Contact_Id],0) as Contact_Id                            
+      ,isnull(cm.[ContactName],'') as ContactName                 
+      ,isnull(cm.[parentId],0) as parentId                            
+      ,isnull(cm.[ParentType],'') as ParentType                            
+      ,isnull(cm.[FirstName],'') as FirstName                            
+      ,isnull(cm.[MiddleName],'')as MiddleName                      
+      ,isnull(cm.[LastName],'') as LastName                      
+     ,isnull(cm.[ContactType],'') as ContactType                      
+      ,isnull(cm.[MasterTags],'<tags></tags>') as MasterTags                            
+     ,isnull(cm.[OpenTags],'<otag></otag>') as OpenTags                            
+      ,isnull(cm.[UpdatedBy],0) as UpdatedBy                            
+      ,isnull(cm.[UpdatedDTM],'') as UpdatedDTM                            
+      ,isnull(cm.[PAN],'') as PAN                            
+      ,isnull(cm.[Designation],'') as Designation                      
+      ,isnull(cm.[DOB],'') as DOB                            
+      ,isnull(cm.[MarriageAnniversary],'') as MarriageAnniversary                      
+      ,isnull(cm.[Inst_Id],0) as Inst_Id                            
+      ,isnull(cm.[IsActive],0) as IsActive                            
+      ,isnull(cm.[CIFnumber],0) as CIFnumber                
+      ,CASE WHEN ISNULL(cl.ClientName,'')!=''  THEN cl.ClientName                
+  WHEN ISNULL(Cp.Name,'')!=''  THEN Cp.Name                
+  WHEN ISNULL(ld.LeadName,'')!=''  THEN ld.LeadName                
+  ELSE ''                
+  END AS ParentName                
+   ,CASE WHEN ISNULL(cl.ClientName,'')!=''  THEN 'Client'                
+  WHEN ISNULL(Cp.Name,'')!=''  THEN 'CounterParty'                
+  WHEN ISNULL(ld.LeadName,'')!=''  THEN 'Lead'                
+  ELSE ''                
+  END AS ParentTypeName                
+   into #Contacts                        
+ from Contacts_XmlTest cm                              
+  left join #Rowlevelsec rs on rs.ParentType=@ParentType AND cm.parentId =rs.parentId  AND cm.Inst_Id=@Inst_Id AND rs.Inst_Id=@Inst_Id   --and rs.ParentType='Client'  added by pravin rane on 02-Jun-2017 for contact level security
+   
+   left join #Rowlevelsec rs1 on cm.Contact_Id =rs1.parentId  and rs1.ParentType='Contact' --AND rs1.Inst_Id=@Inst_Id --added by pravin rane on 02-Jun-2017 for contact level security              
+  --left join BranchMaster Br on cm.ParentType='Branch' and  cm.parentId=Br.Branch_Id                                        
+  left join ClientMaster_XmlTest CL on --(Br.ParentType='Client' and Br.ParentId=CL.Client_Id) OR       
+            (cm.ParentType = 'Client' and cm.parentId=CL.Client_Id ) --AND CL.Inst_Id=@Inst_Id                                  
+  left join CounterParty CP on --( br.ParentType='CounterParty' and Br.ParentId=CP.CounterParty_Id) OR       
+       (cm.ParentType = 'CounterParty' and cm.parentId=cp.CounterParty_Id ) --AND cp.Inst_Id=@Inst_Id
+  left join Lead ld on cm.ParentType='lead'  and cm.parentId=ld.Lead_Id --AND ld.Inst_Id=@Inst_Id                               
+  where (  --cm.Inst_Id=@Inst_Id AND                            
+   (case when @IgnoreSecurity=1 then 1                                
+    when @IgnoreSecurity=0 and rs.parentId = cm.parentId and rs.parenttype=@ParentType then 1              
+    else 0 end) =1                              
+      ) 
+      --Added by pravin rane on 02-June-2017
+         AND(                              
+   (case when @IgnoreContactSecurity=1 then 1                                
+    when @IgnoreContactSecurity=0 and rs1.parentId = cm.Contact_Id and rs1.ParentType='Contact' then 1              
+    else 0 end) =1                              
+      ) 
+   --   --Ended by pravin rane                             
+	--AND (@ContactName is null or cm.ContactName LIKE '%'+@ContactName+'%')  
+    AND (NULLIF(@ContactName,'') IS NULL   OR cm.ContactName LIKE '%'+@ContactName+'%')                               
+  --AND (ISNULL(@ParentId,cm.parentId) =cm.parentId )   
+  --AND (@ParentId is null or cm.parentId =@ParentId ) --Added by pravin rane on 17-Aug-2017  
+   --AND (@ParentId is null or cm.parentId=@ParentId)  
+     AND( NULLIF(@ParentId, '') IS NULL  or   cm.parentId =@ParentId ) --Added by pravin rane on 17-Aug-2017   
+     --AND (@ParentType is null or cm.ParentType=@ParentType)  
+	  AND( NULLIF(@ParentType, '') IS NULL  or   cm.ParentType =@ParentType )--Added by pravin rane on 17-Aug-2017                                
+   --AND (ISNULL(@ParentType,cm.ParentType) = cm.ParentType  )    
+  -- AND (@ParentType is null  or cm.ParentType =@ParentType ) --Added by pravin rane on 17-Aug-2017                            
+  -- AND (ISNULL(@Designation,ISNULL(cm.Designation,'')) = ISNULL(cm.Designation,''))  
+  --AND(@Designation is null  or cm.Designation=@Designation)  --Added by pravin rane on 17-Aug-2017  
+    AND( NULLIF(@Designation, '') IS NULL  or   cm.Designation =@Designation )  --Added by pravin rane on 17-Aug-2017         
+	--AND (@Designation is null or cm.Designation=@Designation)  
+   --AND (ISNULL(@Contact_Id,ISNULL(cm.Contact_Id,'')) =ISNULL( cm.Contact_Id,''))      
+    --AND (@Contact_Id is null or cm.Contact_Id =@Contact_Id ) --Added by pravin rane on 17-Aug-2017  
+     AND (NULLIF(@Contact_Id,'') IS NULL or cm.Contact_Id =@Contact_Id ) --Added by pravin rane on 17-Aug-2017                            
+	 --AND (@Contact_Id is null or cm.Contact_Id=@Contact_Id)  
+   AND (@isActive is null or cm.IsActive=@isActive)    
+   AND (                                                
+    @branchName IS null OR                                                    
+    --cast(cm.MasterTags.query('data(/tags/BranchName)')  as varchar(MAX))=@branchName    
+	--cm.MasterTags.value('(tags/BranchName/node())[1]','varchar(200)')=@branchName
+	
+	cm.MasterTags.exist('tags/BranchName[.=sql:variable("@branchName")]')=1
+    )   
+   -- --Added By pravin rane on 13-Jan-2016    
+    AND(  
+    @authorisedsignatory is null OR  
+    --CAST(cm.MasterTags.query('data(/tags/AuthorisedSignatory)') as varchar(20))= @authorisedsignatory    
+	--cm.MasterTags.value('(tags/AuthorisedSignatory/node())[1]','varchar(20)')=@authorisedsignatory
+	cm.MasterTags.exist('tags/AuthorisedSignatory[.=sql:variable("@authorisedsignatory")]')=1
+    )  
+   -- --Added By Deeak on 21 Sep 2016 [MainPointofContact,TypeOfContact] filter  
+    AND(  
+    @mainpointofcontact is null OR  
+    --CAST(cm.MasterTags.query('data(/tags/MainPointofContact)') as varchar(20))= @mainpointofcontact    
+	--cm.MasterTags.value('(tags/MainPointofContact/node())[1]','varchar(20)')=@mainpointofcontact
+	cm.MasterTags.exist('tags/MainPointofContact[.=sql:variable("@mainpointofcontact")]')=1
+    )  
+    AND(  
+    @typeofcontact is null OR  
+    --CAST(cm.MasterTags.query('data(/tags/TypeOfContact)') as varchar(20))= @typeofcontact    
+	--cm.MasterTags.value('(tags/TypeOfContact/node())[1]','varchar(20)')=@typeofcontact
+	cm.MasterTags.exist('tags/TypeOfContact[.=sql:variable("@typeofcontact")]')=1
+    ) 
+    AND(  
+    @clientsource is null OR  
+    --CAST(CL.MasterTags.query('data(/tags/ClientSource)') as varchar(100))= @clientsource    
+	CL.MasterTags.value('(tags/ClientSource/node())[1]','varchar(100)')=@clientsource
+	--CL.MasterTags.exist('tags/ClientSource[.=sql:variable("@clientsource")]')=1
+    )                    
+ --   AND       (ISNULL(@ContactType, ISNULL( cm.ContactType,'')) = isnull(cm.ContactType,''))  
+     --AND (@ContactType is null or cm.ContactType= @ContactType)--Added by pravin rane on 17-Aug-2017
+      AND (NULLIF(@ContactType,'') is null or cm.ContactType= @ContactType)--Added by pravin rane on 17-Aug-2017
+	  --AND isnull(@ContactType,cm.ContactType)=cm.ContactType
+
+ SELECT *                                            
+FROM #Contacts                                           
+ WHERE RowIndex                       
+ BETWEEN (1+ (@PageIndexNo * @recordCount))-@recordCount                      
+ AND @PageIndexNo * @recordCount                    
+                   
+                   
+  SELECT                         
+  CASE                         
+  WHEN CEILING(CONVERT(float,COUNT(1))/@recordCount)=0 THEN 1                         
+  ELSE CEILING(CONVERT(float,COUNT(1))/@recordCount) END AS NoOfPages,(@PageIndexNo) as CurrentPage                         
+  from #Contacts                     
+                     
+                     
+ IF(@Contact_Id IS NOT NULL)                        
+  BEGIN                    
+    INSERT INTO RecentActivities             
+    (UserId,ActivityType,ActivityDTM,                  
+     ActivityDesc,ParentType,ParentId,                  
+     Inst_Id)                  
+   VALUES(@UserId,'Read',GETDATE(),(select ContactName from #Contacts)+' - '+'('+                  
+            (CASE                   
+     WHEN @ParentType='CounterParty' THEN (select Name from CounterParty where CounterParty_Id=(select parentId from #Contacts) and Inst_Id=@Inst_Id )                  
+     WHEN @ParentType='Client' THEN (select ClientName from ClientMaster_XmlTest where Client_Id=(select parentId from #Contacts) and Inst_Id=@Inst_Id )                      
+     END)+')'                     
+   ,'Contact',@Contact_Id,@Inst_Id)                       
+  END                       
+
+
+
+
+
+
+
+ 
+--  SELECT TOP 200 SUBSTRING(qt.text, (qs.statement_start_offset/2)+1, 
+--        ((CASE qs.statement_end_offset
+--          WHEN -1 THEN DATALENGTH(qt.text)
+--         ELSE qs.statement_end_offset
+--         END - qs.statement_start_offset)/2)+1), 
+--qs.execution_count, 
+--qs.total_logical_reads, qs.last_logical_reads,
+--qs.min_logical_reads, qs.max_logical_reads,
+--qs.total_elapsed_time, qs.last_elapsed_time,
+--qs.min_elapsed_time, qs.max_elapsed_time,
+--qs.last_execution_time,
+--qp.query_plan
+--FROM sys.dm_exec_query_stats qs
+--CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
+--CROSS APPLY sys.dm_exec_query_plan(qs.plan_handle) qp
+--WHERE qt.encrypted=0
+--ORDER BY qs.total_logical_reads DESC
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+  SELECT TOP 200 SUBSTRING(qt.text, (qs.statement_start_offset/2)+1, 
+		 ((CASE qs.statement_end_offset
+		 WHEN -1 THEN DATALENGTH(qt.text)
+         ELSE qs.statement_end_offset
+         END - qs.statement_start_offset)/2)+1), 
+qs.execution_count, 
+qs.total_logical_reads, qs.last_logical_reads,
+qs.min_logical_reads, qs.max_logical_reads,
+qs.total_elapsed_time, qs.last_elapsed_time,
+qs.min_elapsed_time, qs.max_elapsed_time,
+qs.last_execution_time,
+qp.query_plan
+FROM sys.dm_exec_query_stats qs
+CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
+CROSS APPLY sys.dm_exec_query_plan(qs.plan_handle) qp
+WHERE qt.encrypted=0
+ORDER BY qs.total_logical_reads DESC
+
+
+SELECT TOP 100 [ecp].[refcounts]
+, [ecp].[usecounts]
+, [ecp].[objtype]
+, DB_NAME([est].[dbid]) AS [db_name]
+, [est].[text] as [query_ext]
+, [eqp].[query_plan]
+,[est].objectid
+FROM sys.dm_exec_cached_plans ecp
+CROSS APPLY sys.dm_exec_sql_text ( ecp.plan_handle ) est
+CROSS APPLY sys.dm_exec_query_plan ( ecp.plan_handle ) eqp
+WHERE DB_NAME([est].[dbid])='Exponentia' 
+AND [est].objectid=1811537537
+
+Select * from sys.procedures where object_id =821577965
+Select * from sys.procedures where name ='Get_Contacts'
+
+
+SELECT plan_handle,usecounts, cacheobjtype, objtype, size_in_bytes, text, 
+    qp.query_plan, tqp.query_plan AS text_query_plan
+FROM sys.dm_exec_cached_plans cp
+ CROSS APPLY sys.dm_exec_sql_text(plan_handle) t
+ CROSS APPLY sys.dm_exec_query_plan(plan_handle) qp
+ CROSS APPLY sys.dm_exec_text_query_plan(plan_handle, NULL, NULL) tqp
+WHERE  text LIKE '%Optimized%'
+ AND objtype = 'Proc'
