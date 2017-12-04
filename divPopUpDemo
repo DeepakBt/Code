@@ -1,0 +1,88 @@
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <link href="myst.css" rel="stylesheet" type="text/css" />
+    <script>
+        $(document).ready(function () {
+            $("#pushData").addClass("divHide");
+            $("#backgroundFade").addClass("divHide");
+            $("#btnClick").click(function (evt) {
+                debugger;
+                    $("#pushData").removeClass("divHide");
+                    $("#pushData").addClass("showDiv");
+                    var windowHeight = $(window).height();
+                    var windowWidth = $(window).width();
+                    var dialogHeight = $("#pushData").outerHeight();
+                    var dialogWidth = $("#pushData").outerWidth();
+                    top = ((windowHeight - dialogHeight) / 2 +
+                    $(window).scrollTop()) + "px";
+                    left = ((windowWidth - dialogWidth) / 2 +
+                    $(window).scrollLeft()) + "px";
+                    $("#pushData").css("top", top);
+                    $("#pushData").css("left", left);
+                    $("#backgroundFade").addClass("backgroundDiv")
+                    .height(windowHeight)
+                    .width(windowWidth)
+                    .css("display", "block");
+                    evt.preventDefault();
+            });
+            $("#btnCancel").click(function () {
+                $("#pushData").removeClass("showDiv");
+                $("#pushData").addClass("divHide");
+                $("#backgroundFade").removeClass("backgroundDiv");
+                $("#backgroundFade").addClass("divHide");
+            });
+            $(window).resize(function () {
+                debugger;
+                if ($("#pushData").hasClass("showDiv")) {
+                    $("#btnClick").click();
+                }
+            });
+        });
+function getPage()
+{
+    window.location.href="https://www.google.co.in/";
+}
+    </script>
+<style>
+.backgroundDiv{
+background-color:rgba(0, 0, 0,0.7);
+opacity:0.5;
+position:fixed;
+left:0;
+top:0;
+}
+.divHide{
+	display:none;
+}
+.showDiv{
+	opacity:1;
+	position:fixed;
+border:5px solid #ff6a00;
+background-color:white;
+font-weight:bold;
+padding:30px;
+}
+</style>
+    <title>
+        Data
+    </title>
+</head>
+<body>
+    <input type="Button" value="Click" id="btnClick" />
+    <div id="backgroundFade">
+    </div>
+    <div id="pushData">
+        <table>
+            <tr>
+                <td>
+                    <input type="Button" id="btnPush" value="go to google" onclick="getPage();" />
+                </td>
+                <td>
+                    <input type="Button" id="btnCancel" value="Cancel" />
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>
