@@ -1,0 +1,848 @@
+--UserMaster INsert
+Insert Into UserMaster Values('ETLifeMobile','ETLifeMobile',16,0,94,'ETLifeMobile@edelweissfin.com','',1,1,'<tags>
+  <IgnoreMail>0</IgnoreMail>
+  <UserType>ADMIN</UserType>
+  <SubCode>24</SubCode>
+  <Designation>Senior Executive</Designation>
+  <IgnoreProductRowlevelSecurity>1</IgnoreProductRowlevelSecurity>
+  <AllowBranchAccess>1</AllowBranchAccess>
+  <AllowCategoryAccess>1</AllowCategoryAccess>
+  <IsEdelCapUser>1</IsEdelCapUser>
+<UserPassword>sHGrGMFZnG7uaFCgq91iYw==</UserPassword>
+</tags>','<otag />',0,GETDATE(),'',0,'','',1) 
+
+
+--Default CONSTRAINT
+ALTER TABLE Feedback 
+ADD CONSTRAINT DEFAULT_IsActive
+DEFAULT 1 FOR IsActive
+
+--Composit Duplicity
+Select RoleId,MenuId,Inst_Id from RoleMenuMapping 
+Group by RoleId,MenuId,Inst_Id
+having Count(RoleId)>1 
+
+
+--Index
+--CREATE NONCLUSTERED INDEX iInst_Id   
+--ON ClientMaster(Inst_id);
+    
+--CREATE NONCLUSTERED INDEX iParentTypeId
+--ON Contacts (ParentType, parentId);
+	
+--CREATE NONCLUSTERED INDEX iInst_Id   
+--ON Contacts(Inst_id);
+    
+    
+
+
+--Comp Unique Key
+CREATE UNIQUE NONCLUSTERED INDEX QuestionSetIdQuestionIdUnique ON QuestionSetMapping
+(
+        QuestionSetId  ,
+        QuestionId
+) WITH( IGNORE_DUP_KEY = OFF)
+
+
+--Rename Node
+update #TempOpp set
+  MasterTags = replace(replace(cast(MasterTags as nvarchar(max)), 
+                           '<BusinessType>', 
+                           '<Business>'), 
+                   '</BusinessType>', 
+                   '</Business>') where Inst_Id=20
+
+--Remove Node From MasterTags
+update #TempData set MasterTags.modify('delete //tags//QuestionSetNameId')
+Where Inst_Id=20 and TagType='RelationType' AND MasterTags is not null
+
+--List Of Ideas in FROLIC
+Select U.UserName,
+P.MasterTags.value('(tags/BriefIdea/node())[1]','varchar(100)') as 'BriefIdea',P.Remarks AS 'Ideas' 
+from PointsAllocation P LEft JOIN UserMaster U ON P.UserId=U.UserId where P.GameId=2
+
+--Get SP name from any text used in Sp
+SELECT ROUTINE_NAME, ROUTINE_DEFINITION
+FROM INFORMATION_SCHEMA.ROUTINES 
+WHERE ROUTINE_DEFINITION LIKE '%isReadOnly%' 
+AND ROUTINE_TYPE='PROCEDURE'
+
+
+--Re Index
+DBCC DBREINDEX ('ClientMaster')
+
+--Insert into usermaster
+insert into UserMaster
+values('SystemUser','SystemUser',8,0,121,'systemuser@edel.com',9999999999,1,1,NULL,NULL,
+1,GETDATE(),NULL,0,NULL,NULL,1)
+
+--Select tickets perticular datewise
+
+select * from Tickets where Inst_Id=9 and CONVERT(varchar(10),date,111)='2016/02/16'and Status='Open'
+
+
+--update new node in existing mastertag
+
+update UserMaster set  MasterTags.modify('insert 
+<AllowCategoryAccess>1</AllowCategoryAccess> into (/tags)[1]')
+where Inst_Id=7 and MasterTags is not null
+
+
+
+
+update tickets set MasterTags.modify('insert 
+<tags><Actionable>1</Actionable></tags> into (/tags)[1]')
+where Inst_Id=7 and 
+MasterTags.value('(tags/Actionable/node())[1]','varchar(100)') is null
+
+update tickets set MasterTags='<tags><Actionable>1</Actionable></tags>' 
+where Inst_Id=7
+and MasterTags is  null
+
+
+
+//Use following queries when in mastertags column only <tags/> value.
+
+update tickets set MasterTags='<tags><Actionable>1</Actionable></tags>' 
+where Inst_Id=4
+and MasterTags.value('(tags/node())[1]','varchar(100)') is  null
+
+select * from tickets where  Inst_Id=4 and MasterTags is not null and 
+MasterTags.value('(tags/node())[1]','varchar(100)') is not null
+
+
+
+
+
+insert
+
+update UserMaster set 
+MasterTags='<tags><AllowCategoryAccess>1</AllowCategoryAccess></otags>' 
+where Inst_Id=7 and MasterTags is null
+
+
+
+--Drop Constraint
+
+alter table [BranchMaster]  drop constraint [chk_BranchMaster_ParentType]
+
+
+add Constraint
+
+
+ALTER TABLE [dbo].[BranchMaster]  WITH CHECK ADD  CONSTRAINT 
+[chk_BranchMaster_ParentType] CHECK  (([ParentType]='Client' OR 
+[ParentType]='CounterParty' OR [ParentType]='Lead' OR 
+[ParentType]='Edelweiss'))
+
+
+--Insert into rolemaster table
+insert into RoleMaster(RoleName,Inst_Id,DashboardPageName,IsActive)
+  values('Admin',9,'',1)
+
+insert into tagmaster table
+
+--Taskcategory
+
+  insert into TagMaster 
+values('TaskCategory','General',0,0,NULL,NULL,9,1,651,GETDATE())
+
+
+--Subtaskcategory
+  insert into TagMaster 
+values('TaskSubCategory','Others',0,564630,NULL,NULL,9,1,651,GETDATE())
+
+
+delete perticular node into mastertags
+  UPDATE usermaster
+SET mastertags.modify('delete(//tags//Designation)[1]') from UserMaster 
+where inst_id=1
+
+
+
+
+
+
+
+select emp.*,um.UserName,um.Emp_code from Employee_ActiveDirectory emp
+join UserMaster um on emp.User_Name=um.LoginId where um.Inst_Id=1
+update #temp set design='NA' where design=''
+update #temp set design='NA' where design is null
+
+
+
+insert into RoleMenuMapping 
+(RoleId,MenuId,isReadOnly,UpdatedBy,UpdatedDTM,Inst_Id,IsLandingPage)
+values(92,165,1,303,GETDATE(),6,1)
+
+
+insert into FeatureMaster table
+
+
+insert into FeatureMaster(FeatureId,
+FeatureDesc,
+Inst_Id,
+IsActive,
+MasterTags,
+OpenTags)
+  select 27,'Ticket status for replied Emails',9,1,null,'<tags><Otags 
+type="CurrentStatus"><CurrentStatus>Closed</CurrentStatus><CurrentStatus>Rejected</CurrentStatus></Otags><Otags 
+type="ChangeTo"><ChangeTo>Re-Open</ChangeTo></Otags></tags>'
+
+
+
+
+DECLARE @LoopCounter INT = 1,
+     @UserCount int,
+     @TAGTYPE VARCHAR(1000),
+     @TAGNAMEOLD VARCHAR(1000),
+     @TAGNAMENEW VARCHAR(1000),
+     @TAGS VARCHAR(50),
+     @LoginID varchar(1000)
+SET @UserCount=(SELECT COUNT(*) FROM #temp)
+
+     WHILE(@LoopCounter <= @UserCount)
+             BEGIN
+                        declare @existingmasterxml xml
+                         select @existingmasterxml=MasterTags from #temp 
+where ID=@LoopCounter
+                         set @TAGTYPE='Designation'
+                         set @TAGNAMEOLD=0
+                         set @TAGNAMENEW=(select design from #temp where 
+ID=@LoopCounter)
+                         set @TAGS = 'tags'
+                         set @LoginID=(select user_name from #temp where 
+ID=@LoopCounter)
+                         --select @Emp_code
+                          if(@existingmasterxml is null)
+                         begin
+                             UPDATE UserMaster
+                             set 
+MasterTags='<tags><Designation>0</Designation></tags>'
+                             WHERE 
+ltrim(rtrim(loginid))=LTRIM(rtrim(@LoginID)) and inst_id=1 and 
+MasterTags is null
+                         end
+                         else if(@existingmasterxml is not null)
+                             begin
+                                 UPDATE UserMaster
+                                 set 
+MasterTags.modify('insert(<Designation>0</Designation>) as last into 
+(/tags[1])')
+                                 WHERE 
+ltrim(rtrim(loginid))=LTRIM(rtrim(@LoginID)) and inst_id=1 and 
+MasterTags.exist('(//tags/Designation)')=0 and MasterTags is not null
+
+                             end
+
+                             UPDATE  UserMaster
+                                 SET [MasterTags].modify('
+                                     replace value of (for $n1 in /*,
+                                                           $n2 in $n1/*
+                                                       where 
+$n1[local-name(.) = sql:variable("@TAGS")] and
+$n2[local-name(.) = sql:variable("@TAGTYPE")]
+                                                       return 
+$n2/text())[1]
+                                     with sql:variable("@TAGNAMENEW")')
+                                     where cast(MasterTags.query
+('data(//*[local-name()=sql:variable("@TAGS")]/*[local-name()=sql:variable("@TAGTYPE")])') 
+as varchar(1000))=@TAGNAMEOLD
+                                      and 
+ltrim(rtrim(loginid))=ltrim(rtrim(@LoginID)) and inst_id=1
+
+                 SET @LoopCounter = @LoopCounter + 1
+                 --select @LoopCounter
+            END
+
+
+
+
+
+
+
+
+
+--identity insert on
+
+
+SET IDENTITY_INSERT Workflow ON
+
+insert into Workflow (Workflow_Id,
+WorkflowName,
+Inst_Id,
+CurrentStatus,
+Action,
+NextStatus,
+Template_Id,
+MasterTags)
+select 1,'Ticket_EXP',6,currentstatus,Action,Nextstatus,NULL as 
+Templateid,MasterTags from workflow where inst_id=9
+SET IDENTITY_INSERT Workflow OFF
+
+
+
+
+
+UPDATE Workflow set Template_Id=9 where Workflow_Id=1 and 
+WorkflowName='Ticket_RF' and Inst_Id=9 and
+  CurrentStatus='' and Action='Open' and NextStatus='Open'
+
+
+
+
+
+check node exist or not in mastertag column
+
+select * from UserMaster where Inst_Id=9 and
+MasterTags.value('(tags/AllowCategoryAccess/node())[1]','varchar(100)') 
+is null
+
+
+
+--Insert into alerts table
+
+
+
+insert into alerts(
+AlertType,
+ParentType,
+ParentId,
+Subject,
+Body,
+Attachment,
+[From],
+[To],
+Processed,
+Status,
+Corfirmation_ID,
+ErrorMsg,
+CC,
+BCC,
+Inst_Id,
+MasterTags,
+CreatedBy,
+OpenTags,
+TemplateID,
+MailKey,
+IsIncoming,
+MailSentOn,
+ConnId,
+TotxtAll,
+MailPath,
+UpdatedDTM)
+select AlertType,
+ParentType,
+118287,
+Subject,
+Body,
+Attachment,
+[From],
+'mangesh.narhe@edelweissfin.com',
+Processed,
+Status,
+Corfirmation_ID,
+ErrorMsg,
+CC,
+BCC,
+Inst_Id,
+MasterTags,
+CreatedBy,
+OpenTags,
+TemplateID,
+MailKey,
+0,
+null,
+ConnId,
+TotxtAll,
+MailPath,
+getdate() from alerts where alertid=1996
+
+
+
+
+Update Mastertags column in workflow table using case statement
+
+update Workflow set mastertags=( case when nextstatus 
+in('Open','Re-Open','In-Process') then 
+'<tags><Actionable>1</Actionable></tags>'
+             when nextstatus in('Close','Hold','Reject') then 
+'<tags><Actionable>0</Actionable></tags>'
+             end  )  where Inst_Id=9
+
+
+
+
+
+
+
+
+insert non AD user into usermaster table
+
+
+insert into usermaster 
+values('homeservice','homeservice',9,0,60,'Homeservice@edelweissfin.com',NULL,0,0,'<tags>
+   <AllowCategoryAccess>1</AllowCategoryAccess>
+<IgnoreProductRowlevelSecurity>0</IgnoreProductRowlevelSecurity>
+   <IgnoreMail>0</IgnoreMail>
+   <AllowBranchAccess>1</AllowBranchAccess>
+   <UserPassword>sHGrGMFZnG7uaFCgq91iYw==</UserPassword>
+</tags>',NULL,1,GETDATE(),NULL,NULL,NULL,NULL,0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+//delete ticket history
+delete from TicketHistory where TicketId in (select TicketId from 
+Tickets where Inst_Id=9 and CONVERT(varchar(10),date,111)<='2016/02/11')
+
+
+
+
+//Select attachement data
+select * from (
+select AlertId from Alerts where Inst_Id=9 and  ParentId in(select 
+TicketId from Tickets  where Inst_Id=9 and 
+CONVERT(varchar(10),date,111)<='2016/02/11')
+)temp
+inner join Attachments attach on temp.AlertId=attach.parentId
+
+
+
+
+
+
+select attach.Attachment_Id into #temp from (
+select AlertId from Alerts where Inst_Id=9 and  ParentId in(select 
+TicketId from Tickets  where Inst_Id=9 and 
+CONVERT(varchar(10),date,111)<='2016/02/11')
+)temp
+inner join Attachments attach on temp.AlertId=attach.parentId and 
+attach.Inst_Id=9
+
+delete from Attachments where Attachment_Id in(select Attachment_Id from 
+#temp) and Inst_Id=9
+
+
+
+
+//Delete alerts
+
+
+delete from alerts where ParentId in (select TicketId from Tickets where 
+Inst_Id=9 and CONVERT(varchar(10),date,111)<='2016/02/11') and Inst_Id=9
+
+
+
+//Delete tickets
+delete from Tickets where Inst_Id=9 and 
+CONVERT(varchar(10),date,111)<='2016/02/11'
+
+//Insert User Master
+
+insert into UserMaster values('NicoleD','Nicole D 
+Lima',6,0,92,'Nicole.DLima@edelweissfin.com',9821376641,1,1,'<tags>
+   <IgnoreMail>0</IgnoreMail>
+   <Designation>Assistant Manager - Partnerships</Designation>
+<IgnoreProductRowlevelSecurity>1</IgnoreProductRowlevelSecurity>
+   <Branch>Santacruz</Branch>
+   <AllowBranchAccess>0</AllowBranchAccess>
+   <AllowCategoryAccess>1</AllowCategoryAccess>
+</tags>','<otag></otag>',303,GETDATE(),343443,0,'','',1)
+
+
+
+
+
+
+
+
+//Insert into client Master
+
+
+
+     insert into ClientMaster
+         select 'Mayur Testing',
+Category,
+Type,
+Inst_Id,
+CIFnumber,
+RefId,
+UniqueCode,
+MasterTags,
+OpenTags,
+UpdatedBy,
+UpdatedDTM,
+IsActive,
+ShortName,
+FirstName,
+MiddleName,
+LastName,
+PAN
+FROM ClientMaster WHERE Client_Id=138182
+
+
+
+
+
+
+
+//insert into relationships
+
+         insert into Relationships
+     select    143428,
+ParentType,
+relation_details,
+StartDate,
+EndDate,
+'<tags>
+   <AgreementID>318003434343</AgreementID>
+   <RelationshipNo>Mayur</RelationshipNo>
+   <Facility>TOP UP</Facility>
+   <BranchName>MUMBAI</BranchName>
+</tags>',
+OpenTags,
+UpdatedBy,
+UpdatedDTM,
+Inst_Id,
+RelationshipValue,
+IsActive from Relationships where Inst_Id=9 and parentId=138182
+
+
+
+
+
+
+//Insert into Address
+
+insert into Address 
+values('OFFICE',814102,'Client','Mumbai','Mumbai','Mumbai','MUMBAI','MAHARASHTRA',400031,377,GETDATE(),9,1,0,'INDIA',NULL,NULL)
+
+
+
+
+
+
+//Insert into contacts table
+
+insert into Contacts
+select
+ContactName,
+143908,
+ParentType,
+FirstName,
+MiddleName,
+LastName,
+ContactType,
+MasterTags,
+OpenTags,
+UpdatedBy,
+UpdatedDTM,
+PAN,
+Designation,
+DOB,
+MarriageAnniversary,
+Inst_Id,
+IsActive,
+CIFnumber
+from contacts where Inst_Id=9 and parentId=134658
+
+
+
+
+
+
+//Insert into contactdetails table
+
+insert into ContactDetails
+select
+Type,
+'Mangesh.Narhe@edelweissfin.com',
+isDefault,
+ParentType,
+143908,
+Inst_Id,
+UpdatedBy,
+UpdatedDTM,
+MasterTags,
+OpenTags
+from ContactDetails where Inst_Id=9 and ContactDetails_Id=214688
+
+
+
+
+
+
+//insert into ContactDetails tables
+
+insert into ContactDetails
+values(
+'email',
+'Nikhil.Nagpure@edelweissfin.com',
+1,
+'Client',
+814102,
+9,
+370,
+GETDATE(),
+NULL,
+NULL
+)
+
+
+
+reindexing table
+
+
+
+DBCC DBREINDEX ('InteractionParticipants')
+
+
+
+Create Index syntax
+
+
+CREATE UNIQUE INDEX index_name
+ON table_name (column_name)
+
+  create an index on a combination of columns
+
+Create Index IndexName on TableName(ColumnNames)muliple column seperated 
+by comma
+
+CREATE INDEX PIndex
+ON Persons (LastName, FirstName)
+
+
+
+
+DROP INDEX syntax
+IndexName on tablename
+
+PIndex1 ON dbo.ClientMaster_bkp21july2015
+
+
+
+
+//Update new xml node with value in existing node
+
+declare @Count varchar(10)
+  select @Count=COUNT(1) from  #Tickets
+   if(@ParamXML is not null)
+        declare @mtag xml
+       set @mtag=convert(xml,'<Count>'+@Count+'</Count>')
+       SET @ParamXML.modify('insert sql:variable("@mtag") as last into 
+/NewDataSet[1]')
+
+
+
+
+
+//Ticketid wise ClientName and perticular client belongs to which Branch
+select 
+t.TicketId,cm.ClientName,cm.MasterTags.value('(/tags/BranchName/node())[1]','varchar(100)') 
+from Tickets t inner join ClientMaster cm on t.ParentId=cm.Client_Id 
+where t.TicketId in(7557,
+7020,
+6993,
+6983,
+6980,
+6972,
+6971,
+6970,
+6962,
+6335)
+
+
+
+
+
+
+
+//Select ticket data
+
+
+   select 
+t.TicketId,cm.ClientName,t.Type,t.SubType,t.Date,t.TAT,t.Status,t.Title,t.UpdatedDTM,t.ResolutionDate 
+from Tickets t inner join ClientMaster cm on t.ParentId=cm.Client_Id
+    where 
+t.MasterTags.value('(tags/RelationshipNo/node())[1]','varchar(100)')='LMUM0HL0000001940'
+
+
+
+//Update Ticket status='Close' ticketid wise
+update Tickets set 
+Status='Close',UpdatedDTM=GETDATE(),ResolutionDate=GETDATE(),
+MasterTags= '<tags>
+   <MarkAsRead>1</MarkAsRead>
+   <MarkAsReplied>0</MarkAsReplied>
+   <Actionable>0</Actionable>
+</tags>' where Inst_Id=9 and TicketId=7557
+
+
+//select TAT Categorywise subtaskcategory  for inst_id=9
+
+select 
+t1.tagName,t2.tagName,t2.MasterTags.value('(tags/TAT/node())[1]','varchar(100)') 
+as TAT  from tagmaster t1 inner join tagmaster t2 on 
+t1.TagId=t2.TagParent where t1.Inst_Id=9 and t1.TagType='TaskCategory'
+order by t1.tagName
+
+
+//select from finone system
+
+select * from OpenQuery(EXPONENTIA_FINONE_PULSE, 'select 
+App_ID,EMAIL_CATEGORY_ID,EMAIL_ID,CUSTOMER_ID,MESSAGE,STATUS,CREATED_ON,CREATED_BY,LOG_ID,SEND_ON 
+from HF_REPORTING.LETTER_EMAIL_LOG where log_id=16830')
+
+//Get Appid loanNo wise
+
+select * from Relationships where 
+MasterTags.value('(/tags/RelationshipNo/node())[1]','varchar(100)')='LMUMEFI0000002544'
+
+
+
+
+
+//Get Interaction(meetings) count=0
+select * from spExecutionTime where spName='Get_Tickets' and 
+Parameter.value('(/NewDataSet/Count/node())[1]','varchar(100)')='0' and 
+Parameter.value('(/NewDataSet/InstID/node())[1]','varchar(100)')='9' and 
+CONVERT(nvarchar(10),inTime,126)='2016-03-17' order by inTime
+
+
+
+
+
+
+//Get those ticketid mapped to different instid
+select * from alerts where Inst_Id=9 and Subject like '%Error ticket 
+saved with different inst_id Client!!!!%'
+
+
+
+
+
+
+
+
+//Insert into tagmaster table
+
+insert into TagMaster 
+values('TaskSubCategory','Others',0,549227,'<tags><TAT>2</TAT></tags>',NULL,9,1,651,GETDATE())
+
+
+
+//Select letter tickets where status='Open'
+
+select * from tickets where inst_id=9 and status='Open' and 
+mastertags.value('(tags/PulseID/node())[1]','varchar(100)')<>0 order by 
+1 desc
+
+
+
+//Select User Login Details from LoginSession table for value chain
+select ls.UserId,um.UserName,ls.LoginDTM from LoginSessions ls inner 
+join UserMaster um on ls.UserId=um.UserId where um.Inst_Id=5 and 
+CONVERT(varchar(10), LoginDTM,126)>'2016-02-29' order by LoginDTM
+
+
+
+//find out primary rm  in lead table
+
+select MasterTags.value('(/tags/Primary/node())[1]','varchar(100)'),* 
+from Lead where Inst_Id=5 and 
+MasterTags.value('(/tags/Primary/node())[1]','varchar(100)')=342
+
+
+
+
+
+
+insert into usermaster table
+
+
+
+
+insert into UserMaster values
+('MangeshS','Mangesh 
+Sawant',5,0,71,'Mangesh.Sawant@edelweissfin.com',8452832096,1,0,NULL,NULL, 
+649,GETDATE(),14963,0,NULL,NULL,1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+insert into UserMaster values
+('DhavalU','Dhaval 
+Upadhyay',8,0,65,'Dhaval.Upadhyay@edelweissfin.com',9892156655,1,1,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1),
+('SahadevS','Sahadev 
+Shivarthy',8,0,65,'Sahadev.Shivarthy@edelweissfin.com',8456672025,1,0,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1)    ,
+('PallabB','Pallab 
+Bhattacharya',8,0,65,'Pallab.Bhattacharya@edelweissfin.com',8828410674,1,1,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1)    ,
+('Dipesh','Dipesh 
+Shah',8,0,65,'Dipesh.Shah@edelweissfin.com',9987575401,1,1,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1)    ,
+('SandeepPrabhakaran','Sandeep 
+Prabhakaran',8,0,65,'Sandeep.Prabhakaran@edelweissfin.com',9819552771,1,1,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1)    ,
+('AnandSingh','Anand 
+Singh',8,0,65,'Anand.Singh@edelweissfin.com',7738143114,1,0,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1),
+('AjithP','Ajith 
+Punnakkal',8,0,65,'Ajith.Punnakkal@edelweissfin.com',9167487133,1,1,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1)    ,
+('HarshilS','Harshil 
+Shah',8,0,65,'Harshil.Shah@edelweissfin.com',9920160506,1,0,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1),
+('MohitB','Mohit 
+Batra',8,0,65,'Mohit.Batra@edelweissfin.com',6588761175,1,0,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1),
+('PrasadN','Prasad 
+Naik',8,0,65,'Prasad.Naik@edelweissfin.com',9930552553,1,1,NULL,NULL, 
+1,GETDATE(),NULL,0,NULL,NULL,1)
+
+
+
+
+
+
+//Insert feauture master table
+
+insert into FeatureMaster (FeatureId,
+FeatureDesc,
+Inst_Id,
+IsActive,
+MasterTags,
+OpenTags)
+select FeatureId,
+FeatureDesc,
+10,
+IsActive,
+MasterTags,
+OpenTags from FeatureMaster where Inst_Id=5
+
+-- 
+Pravin Rane
+BSG
+Dir: +91 (22) 4342 8377
