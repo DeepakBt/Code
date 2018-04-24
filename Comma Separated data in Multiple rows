@@ -1,0 +1,26 @@
+IF OBJECT_ID('tempdb..#T')IS NOT NULL
+DROP TABLE  #T
+select 'ddde,fer,dededegt,hy,ju,ki,lp,vf,cd,xs,bh' as BM into #T
+DECLARE @BM VARCHAR(200),@NewBM VARCHAR(200),@RemBM VARCHAR(200)
+DECLARE @TR INT
+SELECT  @BM =BM FROM #T
+
+
+IF OBJECT_ID('tempdb..#Temp')IS NOT NULL
+DROP TABLE  #Temp
+;with T as (
+    select 0 as row, charindex(',', BM) pos, BM from #T
+    union all
+    select pos + 1, charindex(',', BM, pos + 1), BM
+    from T
+    where pos > 0
+)
+
+select Top 3 BM, pos INTO #Temp from T where pos > 0   order by  pos
+
+Select TOP 1 @TR =pos FROM #Temp Order By pos desc 
+
+
+SELECT SUBSTRING(@BM,0,@TR) AS One
+UNION
+SELECT SUBSTRING((@BM),@TR+1,LEN(@BM)) AS One
