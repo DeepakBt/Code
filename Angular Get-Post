@@ -1,0 +1,137 @@
+import { Injectable } from '@angular/core';
+import { RequestOptions,Headers,Http,Response } from '@angular/http';
+import { Observable } from 'rxjs/Observable';
+import 'rxjs/add/operator/map';
+------------------------------------------------------Service
+import 'rxjs/add/operator/toPromise';
+@Injectable()
+export class MyServiceService {
+
+  constructor(private http:Http) { }
+
+  public postdata(data)
+  {
+    let headerOpt=new Headers({'Content-Type':'application/json',
+                              'Accept-Type':'application/json'});
+    let requestOpt = new RequestOptions({headers : headerOpt});
+      var body=JSON.stringify(data) 
+    this.http.post('http://localhost:26923/api/student/PostStudent',body,requestOpt)
+    .subscribe(res => console.log(res.json()));
+    //.map((x: Response) => x.json());;
+  };
+  public Getdata(dataId)
+  {
+    var data;
+    let headerOptions = new Headers({'Content-Type':'application/json'});
+
+    let requestOptions = new RequestOptions({headers : headerOptions});
+
+    this.http.get('http://localhost:26923/api/student/GetStudent?id='+dataId,requestOptions)
+    .subscribe(res => console.log(res.json()));
+    //.subscribe(res => data=res.json());
+  // .map((res:Response)=>data=res.json());
+    //console.log("my Data : " + data);
+    //.map((x: Response) => console.log(x.json()));
+
+  //   this._httpService.get('/api/values').subscribe(values => {  
+  //     this.apiValues = values.json() as string[];  
+  // });  
+
+  };
+}
+-------------------------------------------------------------------ts
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup } from '@angular/forms'
+import {Student} from './Student'
+import {MyServiceService} from './my-service.service';
+import { HttpClient } from '@angular/common/http';
+import { RequestOptions,Headers,Http,Response } from '@angular/http';
+import { Observable } from 'rxjs/Observable';
+import 'rxjs/add/operator/map';
+import 'rxjs/add/operator/toPromise';
+
+
+@Component({
+  selector: 'app-my-app',
+  templateUrl: './my-app.component.html',
+  styleUrls: ['./my-app.component.css']
+})
+export class MyAppComponent {
+  myFrm: FormGroup;
+  post: any;
+  Id: number;
+  Name: string;
+  Score: string;
+  
+  constructor(private fb: FormBuilder,private http:Http,private objService:MyServiceService) {
+    this.myFrm = fb.group({
+      'Id': [null],
+      'Name': [null],
+      'Score': [null]
+    });
+  }
+  SendData(post)
+  {
+    debugger;
+    var objStudent=new Student();
+    objStudent.Id=post.Id;
+    objStudent.Name=post.Name;
+    objStudent.Score=post.Score
+    this.objService.postdata(objStudent);
+    //console.log(objStudent);
+  }
+  GetData(post)
+  {
+    debugger;
+    var objStudent=new Student();
+    objStudent.Id=post.Id;
+    this.objService.Getdata(objStudent.Id);
+  }
+}
+------------------------------------------------------------------------------------HTML
+<div class="container">
+  <form [formGroup]="myFrm" >
+    <div class="form-group">
+      <label>Id</label>
+      <input type="text" formControlName="Id" class="form-control" placeholder="Id" />
+    </div>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" formControlName="Name" class="form-control" placeholder="Name" />
+    </div>
+    <div class="form-group">
+      <label>Score</label>
+      <input type="text" formControlName="Score" class="form-control" placeholder="Score" />
+    </div>
+    <input type="submit" (click)="SendData(myFrm.value)" class="btn btn-success" value="Submit"/>
+    <input type="reset" class="btn btn-success"/>
+    <input type="submit" (click)="GetData(myFrm.value)" class="btn btn-success" value="Get"/>
+  </form>
+</div>
+
+--------------------------------------------------------------------------------------Modules
+import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+import {ReactiveFormsModule} from '@angular/forms'
+import { HttpClientModule } from '@angular/common/http';
+import { HttpModule, Http } from '@angular/http';
+import {MyServiceService} from './my-app/my-service.service'
+import { AppComponent } from './app.component';
+import { MyAppComponent } from './my-app/my-app.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    MyAppComponent
+  ],
+  imports: [
+    BrowserModule,
+    ReactiveFormsModule,
+    HttpClientModule,
+    HttpModule
+  ],
+  providers: [MyServiceService],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+
