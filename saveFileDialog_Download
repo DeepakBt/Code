@@ -1,0 +1,44 @@
+        private void btnDownloadFile_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (Convert.ToInt64(cmbType.SelectedValue) == 0)
+                {
+                    MessageBox.Show("Please select the type");
+                    return;
+                }
+                else if (cmbSubType.SelectedItem == null)
+                {
+                    MessageBox.Show("Please select the sub type");
+                    return;
+                }
+                //Download
+                objUpload = new UploadType();
+                objUpload.TypeId = Convert.ToInt32(cmbSubType.SelectedValue);
+                DataTable dt = objUpload.GetUploadType(Utilities.ObjectToXMLString(objUpload));
+                byte[] DownloadAttach;
+                if (dt.Rows.Count > 0)
+                {
+                    if (dt.Rows[0]["AttachedExcel"].ToString() != "")
+                    {
+                        DownloadAttach = (byte[])dt.Rows[0]["AttachedExcel"];
+                        SaveFileDialog svFile = new SaveFileDialog();
+                        svFile.Filter = "Excel File(*.xlsx)|*.xlsx|Excel File (*.xls)|*.xls";
+                        svFile.FileName = Convert.ToString(dt.Rows[0]["TypeName"]) + Convert.ToString(dt.Rows[0]["FileFormat"]);
+                        if (svFile.ShowDialog() == DialogResult.OK)
+                        {
+                            DownloadAttach = (byte[])dt.Rows[0]["AttachedExcel"];
+                            File.WriteAllBytes(svFile.FileName, DownloadAttach);
+                            MessageBox.Show("File Save successfully", "Message", MessageBoxButtons.OK);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("File not found", "warrning", MessageBoxButtons.OK);
+                    }
+                }
+            }catch(Exception ex)
+            {
+                MessageBox.Show("Error "+ex.Message,"Error",MessageBoxButtons.OK,MessageBoxIcon.Error);
+            }
+        }
