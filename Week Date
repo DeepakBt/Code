@@ -1,0 +1,22 @@
+ALTER FUNCTION [dbo].[fnGetWeeksBetweenDates]
+(
+    @FromDate DATE,    
+    @ToDate DATE
+) RETURNS @tbl TABLE (WeekNo TINYINT,StartWeek DATE, EndWeek DATE)
+	AS BEGIN
+		DECLARE @TOTALWEEK INT,@MAXWeekNo INT,@MinWeekNo INT,@StartDate DATE
+		SET @StartDate=@FromDate
+		SET @FromDate = DATEADD(DAY,-1*DATEPART(dw,@FromDate)+2,@FromDate)
+		SET @TOTALWEEK = DATEDIFF(ww,@FromDate,@ToDate)+1;
+		WITH weekdays (StartWeek, EndWeek) as 
+		(
+			SELECT TOP (@TOTALWEEK) StartWeek = DATEADD(WEEK, ROW_NUMBER()
+			OVER (ORDER BY OBJECT_ID)-1, @FromDate),EndWeek =  DATEADD(WEEK, ROW_NUMBER() OVER (ORDER BY OBJECT_ID)-1, @FromDate) FROM SYS.all_objects
+		)
+		INSERT INTO @tbl
+		SELECT ROW_NUMBER() OVER(ORDER BY StartWeek),StartWeek, DATEADD(DAY, 6, EndWeek) AS EndWeek  FROM weekdays;
+		SELECT @MAXWeekNo=MAX(WeekNo),@MinWeekNo=MIN(WeekNo) FROM @tbl
+		UPDATE @tbl SET StartWeek=@StartDate WHERE WeekNo=@MinWeekNo
+		UPDATE @tbl SET EndWeek=@ToDate WHERE WeekNo=@MAXWeekNo
+		RETURN
+END;
