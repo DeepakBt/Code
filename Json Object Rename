@@ -1,0 +1,65 @@
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Web.Script.Serialization;
+
+namespace JsonDemo2
+{
+    public class Program
+    {
+
+        public static void Main(string[] args)
+        {
+            string JsonStr = "{ \"InventoryPlotProperty\":{ \"Name\":\"Elina 49\", \"Wing\":\"A\", \"Sold\":\"2/9 Sold\" }, \"Inventory\":[ { \"DeveloperInventory\":[ { \"PropertyId\":1, \"FloorNo\":11, \"FlatNo\":\"A - 1103\", \"Wing\":\"A\", \"Facing\":\"arr-east\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-green.png\" } ] }, { \"DeveloperInventory\":[ { \"PropertyId\":1, \"FloorNo\":12, \"FlatNo\":\"A - 1201\", \"Wing\":\"A\", \"Facing\":\"arr-west\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-blue.png\" }, { \"PropertyId\":1, \"FloorNo\":12, \"FlatNo\":\"A - 1202\", \"Wing\":\"A\", \"Facing\":\"arr-north\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-green.png\" }, { \"PropertyId\":1, \"FloorNo\":12, \"FlatNo\":\"A - 1203\", \"Wing\":\"A\", \"Facing\":\"arr-west\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-blue.png\" } ] }, { \"DeveloperInventory\":[ { \"PropertyId\":1, \"FloorNo\":13, \"FlatNo\":\"A - 1301\", \"Wing\":\"A\", \"Facing\":\"arr-east\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-blue.png\" } ] }, { \"DeveloperInventory\":[ { \"PropertyId\":1, \"FloorNo\":14, \"FlatNo\":\"A - 1401\", \"Wing\":\"A\", \"Facing\":\"arr-east\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-blue.png\" }, { \"PropertyId\":1, \"FloorNo\":14, \"FlatNo\":\"A - 1402\", \"Wing\":\"A\", \"Facing\":\"arr-west\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-blue.png\" }, { \"PropertyId\":1, \"FloorNo\":14, \"FlatNo\":\"A - 1403\", \"Wing\":\"A\", \"Facing\":\"arr-north\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-blue.png\" }, { \"PropertyId\":1, \"FloorNo\":14, \"FlatNo\":\"A - 1404\", \"Wing\":\"A\", \"Facing\":\"arr-south\", \"Name\":\"1 BHK\", \"BookedStatus\":\"hm-blue.png\" } ] } ] }";
+            List<int> indexes = JsonStr.AllIndexesOf("DeveloperInventory");
+            JObject o = JObject.Parse(JsonStr);
+            int ocount = o["Inventory"].Count();
+            List<string> LstFloorNo=new List<string>();
+            for(int i=0;i<=ocount-1;i++)
+            {
+                int incount = o["Inventory"][i]["DeveloperInventory"].Count();
+                for (int j=0;j<=incount-1;j++)
+                {
+                    LstFloorNo.Add(AddOrdinal(Convert.ToInt32(o["Inventory"][i]["DeveloperInventory"][j]["FloorNo"])));
+                }
+            }
+            LstFloorNo = LstFloorNo.Distinct().ToList();
+            string newJson = JsonStr;
+            for (int i=0;i<=indexes.Count-1;i++)
+            {
+                int indexRemove = newJson.IndexOf("DeveloperInventory");
+                newJson = newJson.Remove(indexRemove, 18);
+                newJson = newJson.Insert(indexRemove, LstFloorNo[i]);
+            }
+            Console.WriteLine(newJson);
+            Console.ReadKey();
+        }
+        public static string AddOrdinal(int num)
+        {
+            if (num <= 0) return num.ToString();
+
+            switch (num % 100)
+            {
+                case 11:
+                case 12:
+                case 13:
+                    return num + "th";
+            }
+
+            switch (num % 10)
+            {
+                case 1:
+                    return num + "st";
+                case 2:
+                    return num + "nd";
+                case 3:
+                    return num + "rd";
+                default:
+                    return num + "th";
+            }
+        }
+    }
+}
