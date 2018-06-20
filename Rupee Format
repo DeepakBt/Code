@@ -1,0 +1,26 @@
+ALTER FUNCTION dbo.RupeeFormat(@v FLOAT)
+RETURNS VARCHAR(200)
+AS
+BEGIN
+  DECLARE @res VARCHAR(50)
+  DECLARE @p1 VARCHAR(40)
+  DECLARE @p2 VARCHAR(10)
+  IF LEN(CAST(@v AS DECIMAL(18,0)))<3
+	BEGIN
+		RETURN CAST(CAST(@v AS DECIMAL(18,2)) AS VARCHAR(200))
+	END
+  SET @res = REPLACE(CONVERT (VARCHAR(20), CONVERT(MONEY, @v), 3 ) , ',','')
+  SET @p1 = LEFT(@res, CHARINDEX('.', @res)-1)
+  SET @p2 = SUBSTRING(@res, CHARINDEX('.', @res), 10)
+  SET @res = RIGHT(@p1, 3) + @p2
+  SET @p1 = LEFT(@p1, LEN(@p1)-3)
+  WHILE (@p1<>'')
+  BEGIN
+    SET @res = RIGHT(@p1, 2) + ',' + @res
+    IF (LEN(@p1) > 2)
+      SET @p1 = LEFT(@p1, LEN(@p1)-2)
+    ELSE 
+      SET @p1= ''
+  END
+  RETURN(@res)
+END
