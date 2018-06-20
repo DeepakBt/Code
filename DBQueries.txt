@@ -841,8 +841,3 @@ FeatureDesc,
 IsActive,
 MasterTags,
 OpenTags from FeatureMaster where Inst_Id=5
-
--- 
-Pravin Rane
-BSG
-Dir: +91 (22) 4342 8377
