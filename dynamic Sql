@@ -1,0 +1,36 @@
+IF OBJECT_ID('tempdb..#TempData') IS NOT NULL
+		DROP TABLE #TempData
+		CREATE TABLE #TempData
+		(
+			SortBy INT,
+			Months VARCHAR(100)
+		)
+		
+		SET @TableTempCol = STUFF((SELECT ',' + QUOTENAME(REPLACE(RIGHT(CONVERT(VARCHAR(9), c.Dates, 6), 6), ' ', '-')) +' '+'DECIMAL(18,2)'
+					FROM #tempInflow c Where Months='inflow'
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+			SET @AlterTable = 'ALTER TABLE #TempData ADD  '+CAST(@TableTempCol AS NVARCHAR(1000))+''	
+
+		EXEC(@AlterTable)
+		-----------------------------------------
+		Set @query = 'select * 
+					  from 
+					  (
+						Select SortBy,Months,REPLACE(RIGHT(CONVERT(VARCHAR(9), Dates, 6), 6), '' '', ''-'') As ''Dates'',value From #tempInflow			
+					  )src
+					  pivot
+					  (
+						Sum(value) for Dates in ('+@cols+')
+					  ) piv;'
+		Insert Into #TempData
+		EXECUTE(@query)
+		DECLARE @ColumnName VARCHAR(4000),@FQuery VARCHAR(4000)
+		SELECT @ColumnName=COALESCE(@ColumnName + ',', '')+'CASE WHEN '+CAST(@Currency AS VARCHAR(2))+'=0 
+		THEN CAST(dbo.RupeeFormat(CONVERT(DECIMAL(18,2),ISNULL(['+CAST([Name] AS VARCHAR(100))+'],0)/100000))AS VARCHAR(30)) ELSE 
+		CAST(dbo.RupeeFormat(CONVERT(DECIMAL(18,2),ISNULL(['+CAST([Name] AS VARCHAR(100))+'],0)/10000000))AS VARCHAR(30)) END As 
+		'+'['+CAST([Name] AS VARCHAR(100))+']' FROM TEMPDB.SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID('tempdb..#TempData') AND [Name] NOT IN ('Months','SortBy') 
+		ORDER BY column_id
+		SELECT @FQuery='Select Months,'+@ColumnName+' From #TempData Order By SortBy asc'
+		EXECUTE(@FQuery)
