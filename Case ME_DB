@@ -1,0 +1,336 @@
+CREATE PROC [dbo].[ME_DB]
+/************************************************************************                                                                              
+ '     Object Name   : ME_DB                                 
+ '     Purpose       : 
+ '     Author        : Deepak
+ '     Creation Date : 4 Sep 2018
+ '	   Test          : ME_DB 1,1,16,'',NULL,NULL,NULL,3
+************************************************************************/    
+(	
+	@Flag SMALLINT = NULL,	
+	@PropertyID INT = NULL,
+	@EMPID INT = NULL,
+	@SelectedEMPID VARCHAR(100) = NULL,
+	@CPId INT = NULL,
+	@StatusId INT =NULL,
+	@QualificationId INT = NULL,
+	@FTD INT=NULL
+)
+AS 
+BEGIN
+BEGIN TRY
+		IF (@PropertyID is null)
+		Begin
+			Select top 1 @PropertyID = PropertyId 
+			from TBL_CREMA_PROPERTY_MST(nolock) 
+		End		
+		IF (SELECT Count(1) FROM TBL_CREMA_USER_ROLE_MAPPING WHERE RoleId=4 AND SubRoleId=2 AND UserId=@EMPID)>0
+		BEGIN
+			SET @SelectedEMPID=CAST(@EMPID AS VARCHAR(100))
+		END
+		ELSE IF(SELECT Count(1) FROM TBL_CREMA_USER_ROLE_MAPPING WHERE RoleId IN (2,5,6,7,8,9,10) AND UserId=@EMPID)>0
+		BEGIN
+			SELECT 1 AS 'Result','You are not authorized to view this data' AS 'Message'
+			RETURN
+		END
+		IF(ISNULL(@CPId,0) = 0)	
+		Begin
+			select @CPId = NULL
+		End
+		IF(ISNULL(@QualificationId,0) = 0)	
+		Begin
+			select @QualificationId = NULL
+		End
+		IF(ISNULL(@SelectedEMPID,'') = '')	
+		Begin
+			select @SelectedEMPID = NULL
+		End
+		IF(ISNULL(@StatusId,0) = 0)
+		Begin
+			select @StatusId = NULL
+		End
+		IF(ISNULL(@FTD,0) = 0)
+		Begin
+			select @FTD = NULL
+		End
+		Declare @TempEmp Table 
+			(
+				EmpID int,
+				EmpName varchar(50)
+			)
+
+		if(@SelectedEMPID is not null)
+		Begin
+		  insert into @TempEmp(EmpID)
+		  Select Data from dbo.Split(@SelectedEMPID,',')
+		end
+		ELSE
+		BEGIN
+		  SELECT @SelectedEMPID=COALESCE(@SelectedEMPID+',' ,'')+Convert(VARCHAR(100),Empid) From dbo.Fn_Get_Employee_hierarchy(@EMPID)
+		  insert into @TempEmp(EmpID)
+		  Select Data from dbo.Split(@SelectedEMPID,',')
+		END
+		
+		--Prospect Base Data--
+		SELECT PD.PROSPECTID,PD.CreatedDate AS 'CreatedOn',dbo.Fn_CustomDateFormat(PD.CreatedDate) AS 'CreatedDate',
+		ISNULL(PD.FirstName,'')+' '+ISNULL(PD.LastName,'') AS 'Name',PD.LeadStatus,SM.StatusName,CP.CPID,CP.CPName,
+		EM.EmpId,ISNULL(EM.FirstName,'')+' '+ISNULL(EM.LastName,'') AS 'RMName',CD.ProspectId AS 'Booked',PD.LeadQualify,QM.QualifyName
+		INTO #TempProspect FROM TBL_CREMA_PROSPECT_DETAILS(nolock)PD 
+		LEFT OUTER JOIN TBL_CREMA_PROSPECT_SUPPORTING_DETAILS(nolock)PDS ON PD.ProspectId=PDS.ProspectId
+		LEFT OUTER JOIN tbl_crema_lead_status_mst(nolock)SM ON SM.StatusID=PD.LeadStatus AND SM.IsActive=1
+		LEFT OUTER JOIN TBL_CREMA_CP_MST(nolock)CP ON CP.CPID=PDS.CPID
+		LEFT OUTER JOIN TBL_CREMA_EMP_MST(nolock)EM ON EM.EmpId=PD.AssignedRM
+		LEFT OUTER JOIN TBL_CREMA_CUSTOMER_DETAILS(nolock)CD ON PD.PROSPECTID=CD.ProspectId AND CD.IsCostSheetDone=1
+		LEFT OUTER JOIN @TempEmp E ON E.EmpID=PD.AssignedRM
+		LEFT OUTER JOIN TBL_CREMA_LEAD_QUALIFICATION_MST(nolock)QM ON QM.QualifyID=PD.LeadQualify AND QM.IsActive=1
+		WHERE PD.IsVerified=1 AND PD.IsDetailSubmitted=1 AND PD.AssignedRM = E.EmpID AND PD.PropertyId=@PropertyID
+
+		--Next Meeting Date---
+		SELECT MD.MeetingId,MD.UserID ,CASE WHEN MD.MeetingDate>=CONVERT(DATE,GETDATE()) 
+		AND ISNULL(MD.IsMeetingDone,0)=0 AND ISNULL(MD.IsClosed,0)=0 THEN dbo.Fn_CustomDateFormat(MD.MeetingDate) END AS 'NextFollowUpDate',
+		MD.MeetingDate INTO #TempNextMD From #TempProspect(nolock)PD 
+		INNER JOIN TBL_CREMA_MEETING_DETAILS(nolock)MD ON MD.UserTypeId=7 AND MD.UserId=PD.PROSPECTID 
+		WHERE MD.UserTypeId=7 AND MD.UserId=PD.PROSPECTID  AND CASE WHEN MD.MeetingDate>=CONVERT(DATE,GETDATE()) AND ISNULL(MD.IsMeetingDone,0)=0 
+		AND ISNULL(MD.IsClosed,0)=0 THEN MD.MeetingDate END IS NOT NULL
+ 
+		--Last Site Visit--
+		SELECT PD.PROSPECTID,dbo.Fn_CustomDateFormat(MAX(MD.MeetingDate)) as 'LastVisitDate' INTO #TempLastVisit FROM #TempProspect(nolock)PD 
+		LEFT OUTER JOIN TBL_CREMA_MEETING_DETAILS(nolock)MD ON PD.PROSPECTID = MD.UserId AND MD.UserTypeId = 7 
+		WHERE (MD.Agenda = 3 and MD.IsMeetingDone = 1) AND PD.PROSPECTID = MD.UserId and MD.UserTypeId = 7
+		GROUP BY PD.PROSPECTID
+
+
+		--Site ReVisit-----
+		SELECT PD.PROSPECTID,MD.MeetingId,MD.MeetingDate,MD.Agenda,MD.ModifiedDate,MD.AttendeeArrived INTO #TempMD
+		FROM #TempProspect(nolock)PD
+		LEFT OUTER JOIN TBL_CREMA_MEETING_DETAILS(nolock)MD  ON MD.UserTypeId=7 AND MD.UserId=PD.PROSPECTID
+		WHERE MD.UserTypeId=7 AND MD.IsMeetingDone=1 AND MD.ISCLOSED=1 AND MD.Agenda=3 AND MD.AttendeeArrived=1
+
+		SELECT DENSE_RANK() OVER (PARTITION BY PROSPECTID ORDER BY MeetingId) AS [Rank],PROSPECTID AS 'ReVisitProspectId',MeetingId,MeetingDate,
+		ModifiedDate,AttendeeArrived INTO #TempReVisit FROM #TempMD 
+
+		DELETE FROM #TempReVisit WHERE [Rank]=1
+
+		--Meeting Done ------
+		SELECT PD.PROSPECTID AS 'MeetingDoneProspectID',MD.MeetingDate,MD.MeetingId INTO #TempMeetingDone FROM #TempProspect(nolock)PD 
+		LEFT OUTER JOIN TBL_CREMA_MEETING_DETAILS(nolock)MD ON PD.PROSPECTID=MD.UserId ANd MD.UserTypeId=7
+		WHERE MD.UserTypeId=7 ANd MD.ISCLOSED=1 
+
+		--Meeting Pending
+		SELECT PD.PROSPECTID AS 'MeetingPendingProspectId' INTO #TempMeetingPending
+		FROM #TempProspect(nolock)PD  LEFt OUTER JOIN TBL_CREMA_MEETING_DETAILS(nolock)MD ON PD.PROSPECTID=MD.UserId AND MD.UserTypeId=7
+		GROUP BY PD.PROSPECTID HAVING SUM(CONVERT(INT,MD.ISCLOSED))=0 
+
+		--Booked--
+		SELECT PD.PROSPECTID AS 'BookedProspectId',CD.BookedDate INTO #TempBooked FROM #TempProspect(nolock)PD 
+		LEFT OUTER JOIN TBL_CREMA_CUSTOMER_DETAILS(nolock)CD ON PD.PROSPECTID=CD.ProspectId
+		WHERE PD.PROSPECTID=CD.ProspectId AND CD.IsCostSheetDone=1
+
+		--Latest Open Meeting--
+		SELECT LMD.PROSPECTID,MD.MeetingId,MD.MeetingDate,MD.StartTime,MD.ISCLOSED,S.OUTCOMENAME AS 'Agenda',
+		CASE WHEN MD.MeetingDate < CONVERT(Date,GETDATE()) AND MD.ISCLOSED = 0 THEN 1 ELSE 0 END AS 'IsDelayed'
+		INTO #TempLatestOpenMeeting 
+		FROM TBL_CREMA_MEETING_DETAILS(nolock)MD 
+		LEFT OUTER JOIN 
+		(
+			SELECT PD.PROSPECTID,MAX(MD.MeetingId) AS MeetingId
+			FRoM #TempProspect(nolock)PD LEFT OUTER JOIN TBL_CREMA_MEETING_DETAILS(nolock)MD ON MD.UserTypeId=7 AND PD.PROSPECTID=MD.UserId
+			WHERE MD.ISCLOSED=0 GROUP BY PD.PROSPECTID
+		)LMD ON MD.MeetingId=LMD.MeetingId
+		LEFT OUTER JOIN TBL_CREMA_MEETING_OUTCOME_MST(nolock)S ON S.OUTCOMEID=MD.Agenda
+		WHERE MD.MeetingId=LMD.MeetingId AND MD.UserTypeId=7
+		
+		--Show QA Flag--
+		
+		SELECT DISTINCT PD.PROSPECTID As 'MOMDoneProspectID' INTO #TempQAMOMDone FROM #TempProspect(nolock)PD 
+		LEFT OUTER JOIN TBL_CREMA_MEETING_DETAILS(nolock)MD ON MD.UserTypeId=7 AND PD.PROSPECTID=MD.UserId
+		LEFT OUTER JOIN TBL_CREMA_MOM_QuestionAnswerMapping(nolock)QA ON QA.UserTypeId=7 AND MD.UserTypeId=7 AND QA.UserId=MD.UserId AND MD.MeetingId=QA.MeetingId
+		WHERE MD.MeetingId=QA.MeetingId AND MD.UserTypeId=7
+
+		--Final Data--
+		SELECT PD.*,MD.NextFollowUpDate,MD.MeetingDate AS 'NextMD',LV.LastVisitDate,'<a href="javascript:void(0)"/>Schedule MOM</a>' AS 'Action',
+		RV.MeetingId AS 'ReVisitMI',RV.ReVisitProspectId,RV.ModifiedDate AS 'ReVisitModifyDate',
+		RV.MeetingDate AS 'ReVisitDate',M.MeetingId AS 'MDoneMI',M.MeetingDoneProspectID,M.MeetingDate As 'MDoneDate',
+		MP.MeetingPendingProspectId,ISNULL(OM.MeetingId,0) AS 'MeetingId',CONVERT(VARCHAR(11),OM.MeetingDate,106) AS 'MeetingDate',OM.StartTime,
+		CASE WHEN ISNULL(MQA.MOMDoneProspectID,0)=0 THEN 1 ELSE 0 END AS 'ShowMOMQnFlag',
+		CASE WHEN ISNULL(OM.MeetingId,0)=0 THEN 0 ELSE 1 END AS 'ShowUpdateMOM',
+		OM.Agenda,ISNULL(IsDelayed,0) AS 'IsDelayed' INTO #TempPD FRoM #TempProspect(nolock)PD 
+		LEFT OUTER JOIN #TempNextMD(nolock)MD ON PD.PROSPECTID=MD.UserId 
+		LEFT OUTER JOIN #TempLastVisit(nolock)LV ON LV.PROSPECTID=PD.PROSPECTID
+		LEFT OUTER JOIN #TempReVisit(nolock)RV ON RV.ReVisitProspectId=PD.PROSPECTID
+		LEFT OUTER JOIN #TempMeetingDone(nolock)M ON M.MeetingDoneProspectID=PD.PROSPECTID
+		LEFT OUTER JOIN #TempMeetingPending(nolock)MP ON MP.MeetingPendingProspectId=PD.PROSPECTID
+		LEFT OUTER JOIN #TempLatestOpenMeeting(nolock)OM ON OM.PROSPECTID=PD.PROSPECTID
+		LEFT OUTER JOIN #TempQAMOMDone(nolock)MQA ON MQA.MOMDoneProspectID=PD.PROSPECTID 
+
+
+		DECLARE @SiteVisit INT,@ReSiteVisit INT,@MeetingDone INT,@MeetingPending INT,@WalkingThroughCP INT,@TotalActiveCP INT,
+		@EOI INT,@Booked INT,@FTDDate DATE,@FTM1Date DATE,@FTM2Date DATE
+
+		SET @FTDDate=CONVERT(DATE,GETDATE())
+		SET @FTM1Date=DATEADD(D,0,DATEADD(M,DATEDIFF(M,0,GETDATE()),0))
+		SET @FTM2Date=DATEADD(D,-1,DATEADD(M,DATEDIFF(M,0,GETDATE()) + 1,0))
+
+		SELECT @SiteVisit=COUNT(DISTINCT PROSPECTID) FROM #TempProspect(nolock) WHERE 
+		@FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+					WHEN @FTD=2 AND (CONVERT(DATE,CreatedDate)>=@FTM1Date AND CONVERT(DATE,CreatedDate)<=@FTM2Date) THEN 2 
+					WHEN @FTD=3 AND (CONVERT(DATE,CreatedDate)=CONVERT(DATE,CreatedDate)) THEN 3 
+				END
+
+		SELECT @ReSiteVisit=COUNT(DISTINCT ReVisitProspectId) FROM #TempReVisit(nolock) WHERE 
+		@FTD= CASE WHEN @FTD=1 AND ((MeetingDate=@FTDDate) AND (MeetingDate=CONVERT(DATE,ModifiedDate))) THEN 1 
+					WHEN @FTD=2 AND ((MeetingDate>=@FTM1Date) AND (MeetingDate<=@FTM2Date)) THEN 2 
+					WHEN @FTD=3 AND MeetingDate=MeetingDate THEN 3 
+				END
+
+		Select @MeetingDone=COUNT(DISTINCT MeetingDoneProspectID) from #TempPD Where MeetingDoneProspectID IS NOT NULL AND MDoneMI IS NOT NULL
+					AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+								WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+								WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 
+				  END
+
+		Select @MeetingPending=COUNT(DISTINCT MeetingPendingProspectId) from #TempPD Where MeetingPendingProspectId IS NOT NULL
+		AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+					WHEN @FTD=2 AND (CONVERT(DATE,CreatedDate)>=@FTM1Date AND CONVERT(DATE,CreatedDate)<=@FTM2Date) THEN 2 
+					WHEN @FTD=3 AND (CONVERT(DATE,CreatedDate)=CONVERT(DATE,CreatedDate)) THEN 3 
+		END
+
+		SELECT @WalkingThroughCP = COUNT(DISTINCT PROSPECTID) FROM #TempPD WHERE CPID IS NOT NULL 
+		AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+					WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+					WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 
+				END
+
+
+		SELECT @TotalActiveCP=COUNT(DISTINCT CPID) FROM #TempPD WHERE CPID IS NOT NULL 
+		AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+						WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+						WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 
+					END
+
+		SELECT @EOI=COUNT(DISTINCT PROSPECTID) from #TempPD WHERE LeadStatus=6 
+		AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+						WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+						WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 
+					END 
+
+		SELECT  @Booked=COUNT(DISTINCT Booked) FROM #TempPD WHERE Booked IS NOT NULL
+		AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+						WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+						WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 
+					END 
+
+		SELECT @SiteVisit AS 'SiteVisit',@ReSiteVisit AS 'ReSiteVisit',@MeetingDone AS 'MeetingDone',@MeetingPending AS 'MeetingPending',
+		@WalkingThroughCP AS 'WalkingThroughCP',@TotalActiveCP AS 'TotalCPActive',@EOI AS 'EOI',@Booked AS 'Booked'
+
+		IF @Flag=1 --Site Visit
+		BEGIN
+			SELECT DISTINCT PROSPECTID,CreatedDate,[Name],StatusName,NextFollowUpDate,CPName,RMName,LastVisitDate,[Action],CreatedOn,NextMD,
+			MeetingId,MeetingDate,ShowMOMQnFlag,ShowUpdateMOM,Agenda,IsDelayed FROM #TempPD
+			WHERE @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+			WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+			WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 END 
+			AND ISNULL(@StatusId,LeadStatus)=CASE WHEN @StatusId=-1 AND CONVERT(DATE,MeetingDate)>=CONVERT(DATE,GETDATE()) THEN -1 ELSE LeadStatus END 
+			AND ISNULL(@QualificationId,LeadQualify)=LeadQualify
+			ORDER BY CreatedOn DESC, NextMD ASC
+		END
+		IF @Flag=2 --ReSiteVisit
+		BEGIN
+			SELECT DISTINCT PROSPECTID,CreatedDate,[Name],StatusName,NextFollowUpDate,CPName,RMName,LastVisitDate,[Action],CreatedOn,NextMD,
+			MeetingId,MeetingDate,ShowMOMQnFlag,ShowUpdateMOM,Agenda,IsDelayed FROM #TempPD
+			WHERE @FTD= CASE WHEN @FTD=1 AND ((ReVisitDate=@FTDDate) AND (ReVisitDate=CONVERT(DATE,ReVisitModifyDate))) THEN 1 
+			WHEN @FTD=2 AND ((ReVisitDate>=@FTM1Date) AND (ReVisitDate<=@FTM2Date)) THEN 2 
+			WHEN @FTD=3 AND ReVisitDate=ReVisitDate THEN 3 END
+			AND ISNULL(@StatusId,LeadStatus)=CASE WHEN @StatusId=-1 AND CONVERT(DATE,MeetingDate)>=CONVERT(DATE,GETDATE()) THEN -1 ELSE LeadStatus END 
+			AND ISNULL(@QualificationId,LeadQualify)=LeadQualify
+			ORDER BY CreatedOn DESC, NextMD ASC
+		END
+		IF @Flag=3 --EOI
+		BEGIN
+			SELECT DISTINCT PROSPECTID,CreatedDate,[Name],StatusName,NextFollowUpDate,CPName,RMName,LastVisitDate,[Action],CreatedOn,NextMD,
+			MeetingId,MeetingDate,ShowMOMQnFlag,ShowUpdateMOM,Agenda,IsDelayed FROM #TempPD
+			WHERE LeadStatus=6 AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+			WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+			WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 END 
+			AND ISNULL(@StatusId,LeadStatus)=CASE WHEN @StatusId=-1 AND CONVERT(DATE,MeetingDate)>=CONVERT(DATE,GETDATE()) THEN -1 ELSE LeadStatus END 
+			AND ISNULL(@QualificationId,LeadQualify)=LeadQualify
+			ORDER BY CreatedOn DESC, NextMD ASC
+		END
+		IF @Flag=4--Booked
+		BEGIN
+			SELECT DISTINCT PROSPECTID,CreatedDate,[Name],StatusName,NextFollowUpDate,CPName,RMName,LastVisitDate,[Action],CreatedOn,NextMD,
+			MeetingId,MeetingDate,ShowMOMQnFlag,ShowUpdateMOM,Agenda,IsDelayed FROM #TempPD
+			WHERE Booked IS NOT NULL AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+			WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+			WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 END 
+			AND ISNULL(@StatusId,LeadStatus)=CASE WHEN @StatusId=-1 AND CONVERT(DATE,MeetingDate)>=CONVERT(DATE,GETDATE()) THEN -1 ELSE LeadStatus END 
+			AND ISNULL(@QualificationId,LeadQualify)=LeadQualify
+			ORDER BY CreatedOn DESC, NextMD ASC
+		END
+		IF @Flag=5 --Meeting Done
+		BEGIN
+			SELECT DISTINCT PROSPECTID,CreatedDate,[Name],StatusName,NextFollowUpDate,CPName,RMName,LastVisitDate,[Action],CreatedOn,NextMD,
+			MeetingId,MeetingDate,ShowMOMQnFlag,ShowUpdateMOM,Agenda,IsDelayed FROM #TempPD 
+			WHERE MeetingDoneProspectID IS NOT NULL AND MDoneMI IS NOT NULL 
+			AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+			WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+			WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 END
+			AND ISNULL(@StatusId,LeadStatus)=CASE WHEN @StatusId=-1 AND CONVERT(DATE,MeetingDate)>=CONVERT(DATE,GETDATE()) THEN -1 ELSE LeadStatus END 
+			AND ISNULL(@QualificationId,LeadQualify)=LeadQualify
+			ORDER BY CreatedOn DESC, NextMD ASC
+		END
+		IF @Flag=6 --Meeting Pending
+		BEGIN
+			SELECT DISTINCT PROSPECTID,CreatedDate,[Name],StatusName,NextFollowUpDate,CPName,RMName,LastVisitDate,[Action],CreatedOn,NextMD,
+			MeetingId,MeetingDate,ShowMOMQnFlag,ShowUpdateMOM,Agenda,IsDelayed FROM #TempPD 
+			WHERE MeetingPendingProspectId IS NOT NULL
+			AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+			WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+			WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 END
+			AND ISNULL(@StatusId,LeadStatus)=CASE WHEN @StatusId=-1 AND CONVERT(DATE,MeetingDate)>=CONVERT(DATE,GETDATE()) THEN -1 ELSE LeadStatus END 
+			AND ISNULL(@QualificationId,LeadQualify)=LeadQualify
+			ORDER BY CreatedOn DESC, NextMD ASC
+		END
+		IF @Flag=7 --Walking Through CP
+		BEGIN
+			SELECT DISTINCT PROSPECTID,CreatedDate,[Name],StatusName,NextFollowUpDate,CPName,RMName,LastVisitDate,[Action],CreatedOn,NextMD,
+			MeetingId,MeetingDate,ShowMOMQnFlag,ShowUpdateMOM,Agenda,IsDelayed FROM #TempPD 
+			WHERE CPID IS NOT NULL
+			AND @FTD= CASE WHEN @FTD=1 AND CONVERT(DATE,CreatedDate)=@FTDDate THEN 1 
+			WHEN @FTD=2 AND ((CONVERT(DATE,CreatedDate)>=@FTM1Date) AND (CONVERT(DATE,CreatedDate)<=@FTM2Date)) THEN 2 
+			WHEN @FTD=3 AND CreatedDate=CreatedDate THEN 3 END
+			AND ISNULL(@StatusId,LeadStatus)=CASE WHEN @StatusId=-1 AND CONVERT(DATE,MeetingDate)>=CONVERT(DATE,GETDATE()) THEN -1 ELSE LeadStatus END 
+			AND ISNULL(@QualificationId,LeadQualify)=LeadQualify
+			ORDER BY CreatedOn DESC, NextMD ASC
+		END
+    
+		IF OBJECT_ID('tempdb..#TempPD') IS NOT NULL
+		DROP TABLE #TempPD
+		IF OBJECT_ID('tempdb..#TempBooked') IS NOT NULL
+		DROP TABLE #TempBooked
+		IF OBJECT_ID('tempdb..#TempMeetingPending') IS NOT NULL
+		DROP TABLE #TempMeetingPending
+		IF OBJECT_ID('tempdb..#TempMeetingDone') IS NOT NULL
+		DROP TABLE #TempMeetingDone
+		IF OBJECT_ID('tempdb..#TempReVisit') IS NOT NULL
+		DROP TABLE #TempReVisit
+		IF OBJECT_ID('tempdb..#TempMD') IS NOT NULL
+		DROP TABLE #TempMD
+		IF OBJECT_ID('tempdb..#TempLastVisit') IS NOT NULL
+		DROP TABLE #TempLastVisit
+		IF OBJECT_ID('tempdb..#TempNextMD') IS NOT NULL
+		DROP TABLE #TempNextMD
+		IF OBJECT_ID('tempdb..#TempProspect') IS NOT NULL
+		DROP TABLE #TempProspect
+		IF OBJECT_ID('tempdb..#TempQAMOMDone') IS NOT NULL
+		DROP TABLE #TempQAMOMDone
+		IF OBJECT_ID('tempdb..#TempLatestOpenMeeting') IS NOT NULL
+		DROP TABLE #TempLatestOpenMeeting
+END TRY
+BEGIN CATCH
+	insert into TBL_CREMA_ERROR_LOG(ErrMsg,ErrLine,ErrNo,ErrProc,ErrSeverity,ErrState,ErrCreatedDate)
+	SELECT ERROR_MESSAGE(),ERROR_LINE(),ERROR_NUMBER(),ERROR_PROCEDURE(),ERROR_SEVERITY(),ERROR_STATE()                              
+	,GETDATE()    
+	SELECT 0 AS 'Result', 'There was some error' AS 'Message'
+END CATCH
+END
