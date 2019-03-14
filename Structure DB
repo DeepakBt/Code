@@ -1,0 +1,126 @@
+CREATE TABLE [dbo].[TBL_ERROR_LOG_Test_Demo](
+	[Id] [bigint] IDENTITY(1,1) PRIMARY KEY,
+	[ErrMsg] [varchar](4000),
+	[ErrLine] [int],
+	[ErrNo] [int],
+	[ErrProc] [nvarchar](100),
+	[ErrState] [nvarchar](100),
+	[ErrSeverity] [nvarchar](100),
+	[ErrCreatedDate] [datetime],
+	[ErrorSource] [varchar](50)
+	)
+  
+  ---------------------------------------------------------------------------------
+  CREATE TABLE [dbo].[TBL_EMPLOYESS_DETAILS_Test_Demo](
+	[EmpId] [int] IDENTITY(1,1) Primary Key,
+	[Name] [varchar](50),
+	[Address] [varchar](50),
+	[Salary] [decimal](18, 2),
+	[DOB] [date],
+	[DepartmentId] [int],
+	[CreatedBy] [int],
+	[CreatedOn] [datetime],
+	[ModifiedBy] [int],
+	[ModifiedOn] [dateTime]
+	)
+  
+  ---------------------------------------------------------------------------------
+  CREATE PROC [dbo].[USP_EMPLOYESS_DETAILS_TEST_DEMO]
+/************************************************************************                                                                              
+ '     Object Name   : USP_EMPLOYESS_DETAILS_TEST_DEMO
+ '     Purpose       : Demo SP Structure
+ '     Author        : Deepak
+ '     Creation Date : 15-Mar-2019
+ '	   Test          : Exec USP_EMPLOYESS_DETAILS_TEST_DEMO 4,'<Employess>
+																	<EmpId>89</EmpId>
+																	<Name>Mark Z</Name>
+																	<Address>Mumbai City</Address>
+																	<DOB>1965-12-25</DOB>
+																	<Salary>5000000</Salary>
+																	<DepartmentId>1</DepartmentId>
+																</Employess>',1
+************************************************************************/    
+(	
+	@Flag SMALLINT = NULL,
+	@XmlData XML =NULL,
+	@UserId INT=NULL
+)
+AS 
+BEGIN TRY
+	DECLARE @EmpId AS INT
+	IF @Flag=1 --Insert  New Emp Data
+	BEGIN
+		IF OBJECT_ID('tempdb..#TempEmpData') IS NOT NULL
+		DROP TABLE #TempEmpData
+		SELECT EmpId= Node.Data.value('(EmpId)[1]', 'INT'),
+		[Name] = Node.Data.value('(Name)[1]', 'VARCHAR(50)'),
+		[Address]=Node.Data.value('(Address)[1]', 'VARCHAR(50)'),
+		Salary=Node.Data.value('(Salary)[1]', 'DECIMAL(18,2)'),
+		DOB=Node.Data.value('(DOB)[1]', 'DATE'),
+		DepartmentId=Node.Data.value('(DepartmentId)[1]', 'INT')
+		INTO #TempEmpData FROM  @XMLData.nodes('/Employess') Node(Data)
+
+		BEGIN TRANSACTION EmpTran
+			INSERT INTO TBL_EMPLOYESS_DETAILS_Test_Demo(Name,Address,Salary,DOB,DepartmentId,CreatedBy,CreatedOn)
+			SELECT Name,Address,Salary,DOB,DepartmentId,@UserId,GETDATE() FROM #TempEmpData
+
+			SELECT 1 AS 'Result',SCOPE_IDENTITY() AS 'RecordId','Inserted Successfully' AS 'Message'
+		COMMIT TRANSACTION EmpTran
+	END
+	ELSE IF @Flag=2 -- GEt All Emp Data
+	BEGIN
+		SELECT * FROM TBL_EMPLOYESS_DETAILS_Test_Demo(nolock)
+	END
+	ELSE IF @Flag=3-- Search Emp Data
+	BEGIN
+		SELECT @EmpId = Node.Data.value('(EmpId)[1]', 'INT') FROM  @XMLData.nodes('/Employess') Node(Data)
+		SELECT * FROM TBL_EMPLOYESS_DETAILS_Test_Demo(nolock) WHERE EmpId=@EmpId
+	END
+	ELSE IF @Flag=4 --Update Emp Data
+	BEGIN
+		IF OBJECT_ID('tempdb..#TempUpdateEmpData') IS NOT NULL
+		DROP TABLE #TempUpdateEmpData
+		SELECT EmpId= Node.Data.value('(EmpId)[1]', 'INT'),
+			[Name] = Node.Data.value('(Name)[1]', 'VARCHAR(50)'),
+			Address=Node.Data.value('(Address)[1]', 'VARCHAR(50)'),
+			Salary=Node.Data.value('(Salary)[1]', 'DECIMAL(18,2)'),
+			DOB=Node.Data.value('(DOB)[1]', 'DATE'),
+			DepartmentId=Node.Data.value('(DepartmentId)[1]', 'INT')
+			INTO #TempUpdateEmpData FROM  @XMLData.nodes('/Employess') Node(Data)
+		SELECT @EmpId = Node.Data.value('(EmpId)[1]', 'INT') FROM  @XMLData.nodes('/Employess') Node(Data)
+
+		BEGIN TRANSACTION EmpTranUpdate
+		IF EXISTS(SELECT 1 FROM TBL_EMPLOYESS_DETAILS_Test_Demo(nolock) WHERE EmpId=@EmpId)
+		BEGIN
+			UPDATE ET SET ET.[Name]=TT.[Name],ET.[Address]=TT.[Address],ET.Salary=TT.Salary,ET.DOB=TT.DOB,ET.DepartmentId=TT.DepartmentId,ET.ModifiedBy=@UserId,ET.ModifiedOn=GETDATE() 
+			FROM TBL_EMPLOYESS_DETAILS_Test_Demo(nolock)ET 
+			LEFT OUTER JOIN #TempUpdateEmpData(nolock) TT ON ET.EmpId=TT.EmpId
+			WHERE ET.EmpId=TT.EmpId
+			SELECT 1 AS 'Result',@EmpId AS 'RecordNo','Updated Successfully' AS 'Message'
+		END
+		ELSE
+		BEGIN
+			SELECT 1 AS 'Result',@EmpId AS 'RecordNo','Record Not Found' AS 'Message'
+		END
+		COMMIT TRANSACTION EmpTranUpdate
+	END
+END TRY
+BEGIN CATCH	
+	IF @Flag=1
+		BEGIN
+		IF @@TRANCOUNT>0
+		BEGIN
+			ROLLBACK TRANSACTION  EmpTran
+		END
+	END
+	ELSE IF @Flag=4
+	BEGIN
+		IF @@TRANCOUNT>0
+		BEGIN
+			ROLLBACK TRANSACTION  EmpTranUpdate
+		END
+	END
+	INSERT INTO TBL_ERROR_LOG_Test_Demo(ErrMsg,ErrLine,ErrNo,ErrProc,ErrSeverity,ErrState,ErrCreatedDate,ErrorSource)
+	SELECT ERROR_MESSAGE(),ERROR_LINE(),ERROR_NUMBER(),ERROR_PROCEDURE(),ERROR_SEVERITY(),ERROR_STATE(),GETDATE(),'DB'    
+	SELECT 0 AS 'Result','There was some error as '+ISNULL(ERROR_MESSAGE(),'') As 'Message'
+END CATCH
