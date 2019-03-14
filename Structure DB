@@ -124,3 +124,33 @@ BEGIN CATCH
 	SELECT ERROR_MESSAGE(),ERROR_LINE(),ERROR_NUMBER(),ERROR_PROCEDURE(),ERROR_SEVERITY(),ERROR_STATE(),GETDATE(),'DB'    
 	SELECT 0 AS 'Result','There was some error as '+ISNULL(ERROR_MESSAGE(),'') As 'Message'
 END CATCH
+
+------------------------------------------------------------------------------------------------------------------------------
+DECLARE @XMLData AS XML
+SET @XMLData='<EmpList>
+				<Employess>
+					<EmpId>89</EmpId>
+					<Name>Mark Z</Name>
+					<Address>Mumbai City</Address>
+					<DOB>1965-12-25</DOB>
+					<Salary>5000000</Salary>
+					<DepartmentId>1</DepartmentId>
+				</Employess>
+				<Employess>
+					<EmpId>55</EmpId>
+					<Name>Elon M</Name>
+					<Address>Manhattan</Address>
+					<DOB>1965-02-04</DOB>
+					<Salary>6000000</Salary>
+					<DepartmentId>1</DepartmentId>
+				</Employess>
+			</EmpList>'
+
+
+SELECT EmpId= Node.Data.value('(EmpId)[1]', 'INT'),
+		[Name] = Node.Data.value('(Name)[1]', 'VARCHAR(50)'),
+		[Address]=Node.Data.value('(Address)[1]', 'VARCHAR(50)'),
+		Salary=Node.Data.value('(Salary)[1]', 'DECIMAL(18,2)'),
+		DOB=Node.Data.value('(DOB)[1]', 'DATE'),
+		DepartmentId=Node.Data.value('(DepartmentId)[1]', 'INT')
+		 FROM  @XMLData.nodes('/EmpList/Employess') Node(Data) 
