@@ -1,0 +1,282 @@
+/*
+	Author		:	Deepak
+	Date		:	24-Apr-19
+	Purpose		:	To return the Details of Dashborad for CEO's based on the JIRA data and Drilled Value (Month,Week)
+
+	EXEC [dbo].[usp_GET_JIRA_CEO_PROJECT_DASHBOARD_DRILL_DETAILS]
+		@Business				=	'ALL'
+		, @Project_Name			=	'ALL'
+		, @By_Month_Or_Week		=	'MONTH'
+		, @MonthDate			=	'2019-04-01'
+		, @WeekNo				=	''
+		, @DrillText			=	'UAT_On_Track'
+
+	EXEC [dbo].[usp_GET_JIRA_CEO_PROJECT_DASHBOARD_DRILL_DETAILS]
+		@Business				=	'ALL'
+		, @Project_Name			=	'ALL'
+		, @By_Month_Or_Week		=	'WEEK'
+		, @MonthDate			=	'2019-04-01'
+		, @WeekNo				=	'WK-4'
+		, @DrillText			=	'UAT_On_Track'
+*/
+ALTER PROCEDURE [dbo].[usp_GET_JIRA_CEO_PROJECT_DASHBOARD_DRILL_DETAILS]
+(
+	@Business					VARCHAR(50)
+	, @Project_Name				VARCHAR(100)
+	, @By_Month_Or_Week			VARCHAR(5)	=	'MONTH'
+	, @MonthDate				DATE
+	, @WeekNo					VARCHAR(5)
+	, @DrillText				VARCHAR(100)
+)
+
+AS
+	BEGIN
+		SET NOCOUNT ON
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+		
+		DECLARE @Start_Date DATE,@Edn_Date DATE
+
+		IF @By_Month_Or_Week='MONTH'
+		BEGIN
+			SET @Start_Date=@MonthDate
+			SET @Edn_Date=EOMONTH(@Start_Date)
+		END
+		ELSE IF @By_Month_Or_Week='WEEK' 
+		BEGIN
+			IF OBJECT_ID('tempdb..#TempWeekDate') IS NOT NULL DROP TABLE #TempWeekDate
+			SELECT * INTO #TempWeekDate FROM [dbo].[ufn_GET_WEEKS_BETWEEN_DATES] (@MonthDate,EOMONTH(@MonthDate))
+			SELECT @Start_Date=StartWeek,@Edn_Date=EndWeek FROM #TempWeekDate WHERE WeekNo=RIGHT(@WeekNo,1)
+		END
+
+		IF OBJECT_ID('tempdb..#PROJECTS_DETAILS') IS NOT NULL DROP TABLE #PROJECTS_DETAILS
+		
+		SELECT *  
+		INTO #PROJECTS_DETAILS
+		FROM [dbo].[ufn_GET_JIRA_CEO_PROJECT_DASHBOARD]
+			(
+				@Business
+				, @Project_Name
+				, @Start_Date
+				, @Edn_Date
+			)
+
+		SELECT * FROM #PROJECTS_DETAILS WHERE 
+						@DrillText = CASE 
+							WHEN @DrillText='UAT_Planned' 
+							AND MONTH([UAT_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([UAT_Due_Date]) = YEAR(@Start_Date)
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK, [UAT_Due_Date]) = DATEPART(WEEK, @Start_Date) 
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'UAT_Planned'
+
+
+
+							WHEN @DrillText='Development_Planned' 
+							AND MONTH([Development_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Development_Due_Date]) = YEAR(@Start_Date) 
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Development_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							
+							THEN 'Development_Planned'
+
+							WHEN @DrillText='Development_Actual' 
+							AND MONTH([Actual_Development_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Actual_Development_Date]) = YEAR(@Start_Date) 
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Actual_Development_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Development_Actual'
+
+							WHEN @DrillText='QA_Planned' 
+							AND MONTH([QA_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([QA_Due_Date]) = YEAR(@Start_Date) 
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[QA_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'QA_Planned'
+
+							WHEN @DrillText='QA_Actual' 
+							AND MONTH([Actual_Testing_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Actual_Testing_Date]) = YEAR(@Start_Date) 
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Actual_Testing_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'QA_Actual'
+
+							WHEN @DrillText='UAT_Actual' 
+							AND MONTH([Actual_UAT_Completion_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Actual_UAT_Completion_Date]) = YEAR(@Start_Date) 
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Actual_UAT_Completion_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'UAT_Actual'
+
+							WHEN @DrillText='Go_Live_Planned' 
+							AND MONTH([Go_Live_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Go_Live_Due_Date]) = YEAR(@Start_Date) 
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Go_Live_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Go_Live_Planned'
+
+							WHEN @DrillText='Go_Live_Actual' 
+							AND MONTH([Actual_Go_Live_date]) = MONTH(@Start_Date) 
+							AND YEAR([Actual_Go_Live_date]) = YEAR(@Start_Date) 
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Actual_Go_Live_date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Go_Live_Actual'
+------------------------------------------------------------------------------------------------------
+
+							WHEN @DrillText='Development_Deviated_By_Business' 
+							AND MONTH([Development_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Development_Due_Date]) = YEAR(@Start_Date) 
+							AND [Development_Deviated_By] = 'Business'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Development_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Development_Deviated_By_Business'
+
+							WHEN @DrillText='Development_Deviated_By_IT' 
+							AND MONTH([Development_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Development_Due_Date]) = YEAR(@Start_Date) 
+							AND [Development_Deviated_By] = 'IT'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Development_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Development_Deviated_By_IT'
+
+							WHEN @DrillText='Development_On_Track' 
+							AND MONTH([Development_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Development_Due_Date]) = YEAR(@Start_Date) 
+							AND [Development_Deviated_By] = 'On-Track'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Development_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Development_On_Track'
+
+							WHEN @DrillText='QA_Deviated_By_Business' 
+							AND MONTH([QA_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([QA_Due_Date]) = YEAR(@Start_Date) 
+							AND [QA_Deviated_By] = 'Business'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[QA_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'QA_Deviated_By_Business'
+
+							WHEN @DrillText='QA_Deviated_By_IT' 
+							AND MONTH([QA_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([QA_Due_Date]) = YEAR(@Start_Date) 
+							AND [QA_Deviated_By] = 'IT'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[QA_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'QA_Deviated_By_IT'
+
+							WHEN @DrillText='QA_On_Track' 
+							AND MONTH([QA_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([QA_Due_Date]) = YEAR(@Start_Date) 
+							AND [QA_Deviated_By] = 'On-Track'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[QA_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'QA_On_Track'
+
+							WHEN @DrillText='UAT_Deviated_By_Business' 
+							AND MONTH([UAT_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([UAT_Due_Date]) = YEAR(@Start_Date) 
+							AND [UAT_Deviated_By] = 'Business'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[UAT_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'UAT_Deviated_By_Business'
+
+							WHEN @DrillText='UAT_Deviated_By_IT' 
+							AND MONTH([UAT_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([UAT_Due_Date]) = YEAR(@Start_Date) 
+							AND [UAT_Deviated_By] = 'IT'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[UAT_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'UAT_Deviated_By_IT'
+
+							WHEN @DrillText='UAT_On_Track' 
+							AND MONTH([UAT_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([UAT_Due_Date]) = YEAR(@Start_Date) 
+							AND [UAT_Deviated_By] = 'On-Track'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[UAT_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'UAT_On_Track'
+
+							WHEN @DrillText='Go_Live_Deviated_By_Business' 
+							AND MONTH([Go_Live_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Go_Live_Due_Date]) = YEAR(@Start_Date) 
+							AND [Go_Live_Deviated_By] = 'Business'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Go_Live_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Go_Live_Deviated_By_Business'
+
+							WHEN @DrillText='Go_Live_Deviated_By_IT' 
+							AND MONTH([Go_Live_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Go_Live_Due_Date]) = YEAR(@Start_Date) 
+							AND [Go_Live_Deviated_By] = 'IT'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Go_Live_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Go_Live_Deviated_By_IT'
+
+							WHEN @DrillText='Go_Live_On_Track' 
+							AND MONTH([Go_Live_Due_Date]) = MONTH(@Start_Date) 
+							AND YEAR([Go_Live_Due_Date]) = YEAR(@Start_Date) 
+							AND [Go_Live_Deviated_By] = 'On-Track'
+							AND @By_Month_Or_Week = CASE 
+														WHEN @By_Month_Or_Week='WEEK'
+															AND DATEPART(WEEK,[Go_Live_Due_Date]) = DATEPART(WEEK, @Start_Date)
+														THEN 'WEEK' ELSE 'MONTH'
+													END
+							THEN 'Go_Live_On_Track'
+						END
+	END
+
