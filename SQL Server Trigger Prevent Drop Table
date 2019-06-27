@@ -1,0 +1,38 @@
+CREATE TRIGGER [TR_ProtectCriticalTables] 
+ON DATABASE 
+FOR drop_table 
+AS 
+    DECLARE @eventData XML, 
+            @uname     NVARCHAR(50), 
+            @oname     NVARCHAR(100), 
+            @otext     VARCHAR(max), 
+            @etype     NVARCHAR(100), 
+            @edate     DATETIME 
+
+    SET @eventData = Eventdata() 
+
+    SELECT @edate = Getdate(), 
+           @uname = @eventData.value('data(/EVENT_INSTANCE/UserName)[1]', 
+                    'SYSNAME') 
+           , 
+           @oname = @eventData.value('data(/EVENT_INSTANCE/ObjectName)[1]', 
+                    'SYSNAME'), 
+           @otext = 
+    @eventData.value('data(/EVENT_INSTANCE/TSQLCommand/CommandText)[1]', 
+             'VARCHAR(MAX)'), 
+           @etype = @eventData.value('data(/EVENT_INSTANCE/EventType)[1]', 
+                    'nvarchar(100)') 
+
+    IF @oname IN ( 'tblBananas', 'tblApples', 'tblOranges' ) 
+      BEGIN 
+          DECLARE @err VARCHAR(100) 
+
+          SET @err = 'Table ' + @oname 
+                     + ' is super duper protected and cannot be dropped.' 
+
+          RAISERROR (@err,16,1); 
+
+          ROLLBACK; 
+      END 
+
+go 
