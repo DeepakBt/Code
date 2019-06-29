@@ -1,0 +1,116 @@
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using OfficeOpenXml;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+namespace PMSExportExcel
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Hello World!");
+            DataTable PMSDT;
+            Program p = new Program();
+            PMSDT = p.GetPMSData();
+            List<string> lstPan = new List<string>();
+            if (PMSDT.Rows.Count > 0)
+            {
+                string FileName = Convert.ToString(PMSDT.Rows[0][0]);
+                string FilePath = @"D:\PMSExcel\" + FileName + "_PMS.xlsx";
+                int RowCount = 0;
+                bool PanFount=false;
+                RowCount=PMSDT.Rows.Count;
+                FileInfo NewFile = new FileInfo(FilePath);
+                if (File.Exists(FilePath))
+                {
+                    File.Delete(FilePath);
+                    Console.WriteLine("File Deleted.");
+                }
+                var distinctPan = (from DataRow dRow in PMSDT.Rows select new { col1 = dRow["PAN_NO"]}).Distinct();
+                using (ExcelPackage pck = new ExcelPackage(NewFile))
+                {
+                    ExcelWorksheet ws = pck.Workbook.Worksheets.Add("PmsData");
+                    ws.Cells["A1"].LoadFromDataTable(PMSDT, true);
+                    ws.Cells.AutoFitColumns();
+                    using (var range = ws.Cells["A1:J1"]) 
+                    {
+                        range.Style.Font.Bold = true;
+                    }
+                    foreach (var Pan in distinctPan)
+                    {
+                        int startRange = 0;
+                        int endRange = 0;
+                        for (int i = 0; i < PMSDT.Rows.Count; i++)
+                        {
+                            DataRow dr = PMSDT.Rows[i];
+                            string PanNo = Convert.ToString(Pan.col1);
+                            string dtPan = Convert.ToString(dr[0]);
+                            if (PanNo == dtPan)
+                            {
+                                PanFount = true;
+                                if(startRange==0)
+                                {
+                                    startRange = i+2;
+                                }
+                            }else
+                            {
+                                if (PanFount == true)
+                                {
+                                    endRange = i + 1;
+                                    PanFount = false;
+                                }
+                            }
+                        }
+                        if(endRange==0)
+                        {
+                            endRange = PMSDT.Rows.Count + 1;
+                        }
+                        ws.Cells["A" + startRange.ToString() + ":A" + endRange.ToString()].Merge = true;
+                        ws.Cells["B" + startRange.ToString() + ":B" + endRange.ToString()].Merge = true;
+                        ws.Cells["C" + startRange.ToString() + ":C" + endRange.ToString()].Merge = true;
+                        ws.Cells["D" + startRange.ToString() + ":D"+endRange.ToString()].Merge = true;
+                        ws.Cells["E" + startRange.ToString() + ":E" + endRange.ToString()].Merge = true;
+                        ws.Cells["F" + startRange.ToString() + ":F" + endRange.ToString()].Merge = true;
+                        pck.Save();
+                        startRange = 0;
+                        endRange = 0;
+                    }
+                    Console.WriteLine("File Created.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("No Pms Data Found.");
+            }
+            Console.ReadKey();
+        }
+        public DataTable GetPMSData()
+        {
+            string connectionString =
+            "Data Source=DESKTOP-MRNOIMN;Initial Catalog=TestDB;"
+            + "Integrated Security=true";
+            string queryString =
+            "SELECT * FROM PMSData Order By PAN_NO";
+            DataTable dt = new DataTable();
+            using (SqlConnection connection =
+            new SqlConnection(connectionString))
+            {
+                SqlCommand command = new SqlCommand(queryString, connection);
+                try
+                {
+                    connection.Open();
+                    SqlDataAdapter da = new SqlDataAdapter(command);
+                    da.Fill(dt);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+                return dt;
+            }
+        }
+    }
+}
