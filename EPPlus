@@ -39,6 +39,8 @@ namespace PMSExportExcel
                     {
                         range.Style.Font.Bold = true;
                     }
+                    //ws.Cells["C2"].Style.Numberformat.Format = "yyyy-mm-dd";
+                    ws.Column(3).Style.Numberformat.Format = "dd-mm-yyyy";
                     foreach (var Pan in distinctPan)
                     {
                         int startRange = 0;
