@@ -5,6 +5,7 @@ using OfficeOpenXml;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+
 namespace PMSExportExcel
 {
     class Program
@@ -13,8 +14,14 @@ namespace PMSExportExcel
         {
             Console.WriteLine("Hello World!");
             DataTable PMSDT;
+            DataTable PMSDIST;
+            DataSet PMSDS;
             Program p = new Program();
-            PMSDT = p.GetPMSData();
+            PMSDS = p.GetPMSData();
+            PMSDT = PMSDS.Tables[0];
+            PMSDIST = PMSDS.Tables[1];
+            string PanNo=string.Empty;
+            string dtPan=string.Empty;
             List<string> lstPan = new List<string>();
             if (PMSDT.Rows.Count > 0)
             {
@@ -30,6 +37,8 @@ namespace PMSExportExcel
                     Console.WriteLine("File Deleted.");
                 }
                 var distinctPan = (from DataRow dRow in PMSDT.Rows select new { col1 = dRow["PAN_NO"]}).Distinct();
+                var distinctPanDist = (from DataRow dRow in PMSDIST.Rows select new { Pan_No_Dist = dRow["Pan_No"] }).Distinct().ToList();
+                
                 using (ExcelPackage pck = new ExcelPackage(NewFile))
                 {
                     ExcelWorksheet ws = pck.Workbook.Worksheets.Add("PmsData");
@@ -48,8 +57,8 @@ namespace PMSExportExcel
                         for (int i = 0; i < PMSDT.Rows.Count; i++)
                         {
                             DataRow dr = PMSDT.Rows[i];
-                            string PanNo = Convert.ToString(Pan.col1);
-                            string dtPan = Convert.ToString(dr[0]);
+                             PanNo = Convert.ToString(Pan.col1);
+                             dtPan = Convert.ToString(dr[0]);
                             if (PanNo == dtPan)
                             {
                                 PanFount = true;
@@ -76,6 +85,19 @@ namespace PMSExportExcel
                         ws.Cells["D" + startRange.ToString() + ":D"+endRange.ToString()].Merge = true;
                         ws.Cells["E" + startRange.ToString() + ":E" + endRange.ToString()].Merge = true;
                         ws.Cells["F" + startRange.ToString() + ":F" + endRange.ToString()].Merge = true;
+                        foreach (var pan in distinctPanDist)
+                        {
+                            if (PanNo == Convert.ToString(pan.Pan_No_Dist))
+                            {
+                                ExcelWorksheet wsDis = pck.Workbook.Worksheets.Add(PanNo);
+                                wsDis.Cells["A1"].LoadFromDataTable(p.GetPMSDistributor(PMSDIST, PanNo), true);
+                                wsDis.Cells.AutoFitColumns();
+                                using (var range = wsDis.Cells["A1:B1"])
+                                {
+                                    range.Style.Font.Bold = true;
+                                }
+                            }
+                        }
                         pck.Save();
                         startRange = 0;
                         endRange = 0;
@@ -89,14 +111,14 @@ namespace PMSExportExcel
             }
             Console.ReadKey();
         }
-        public DataTable GetPMSData()
+        public DataSet GetPMSData()
         {
             string connectionString =
             "Data Source=DESKTOP-MRNOIMN;Initial Catalog=TestDB;"
             + "Integrated Security=true";
             string queryString =
-            "SELECT * FROM PMSData Order By PAN_NO";
-            DataTable dt = new DataTable();
+            "SELECT * FROM PMSDataTest Order By PAN_NO; SELECT DISTINCT PD.* FROM PMSDistributor PD LEFT OUTER JOIN PMSDataTest P ON PD.Pan_No=P.PAN_NO WHERE PD.Pan_No = P.PAN_NO";
+            DataSet ds = new DataSet();
             using (SqlConnection connection =
             new SqlConnection(connectionString))
             {
@@ -105,14 +127,20 @@ namespace PMSExportExcel
                 {
                     connection.Open();
                     SqlDataAdapter da = new SqlDataAdapter(command);
-                    da.Fill(dt);
+                    da.Fill(ds);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
                 }
-                return dt;
+                return ds;
             }
+        }
+        public DataTable GetPMSDistributor(DataTable dtPMSDistributor,string Pan_No)
+        {
+            DataTable dt=new DataTable();
+            dt = dtPMSDistributor.AsEnumerable().Where(x => x.Field<string>("Pan_No") == Pan_No).CopyToDataTable();
+            return dt;
         }
     }
 }
