@@ -5,6 +5,7 @@ using OfficeOpenXml;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace PMSExportExcel
 {
@@ -27,6 +28,9 @@ namespace PMSExportExcel
             {
                 string FileName = Convert.ToString(PMSDT.Rows[0][0]);
                 string FilePath = @"D:\PMSExcel\" + FileName + "_PMS.xlsx";
+                string FilePathCvs = string.Empty;
+                string FilePathVideoSummary = @"D:\PMSExcel\VideoSummary_PMS.csv";
+                string FilePathVideoSAllocation = @"D:\PMSExcel\VideoSAllocation_PMS.csv";
                 int RowCount = 0;
                 bool PanFount=false;
                 RowCount=PMSDT.Rows.Count;
@@ -104,6 +108,22 @@ namespace PMSExportExcel
                     }
                     Console.WriteLine("File Created.");
                 }
+                for(int i=0;i<=PMSDS.Tables.Count-1;i++)
+                {
+
+                    if (i == 0)
+                    {
+                        FilePathCvs = FilePathVideoSummary;
+                    }
+                    else if (i == 1)
+                    {
+                        FilePathCvs = FilePathVideoSAllocation;
+                    }
+                    if (PMSDS.Tables[i].Rows.Count > 0)
+                    {
+                        p.DataTableToCSV(PMSDS.Tables[i], FilePathCvs);
+                    }
+                }
             }
             else
             {
@@ -141,6 +161,20 @@ namespace PMSExportExcel
             DataTable dt=new DataTable();
             dt = dtPMSDistributor.AsEnumerable().Where(x => x.Field<string>("Pan_No") == Pan_No).CopyToDataTable();
             return dt;
+        }
+        public void DataTableToCSV(DataTable dt,string path)
+        {
+            StringBuilder sb = new StringBuilder();
+            string[] columnNames = dt.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToArray();
+            sb.AppendLine(string.Join(",", columnNames));
+
+            foreach (DataRow row in dt.Rows)
+            {
+                string[] fields = row.ItemArray.Select(field => field.ToString()).
+                                                ToArray();
+                sb.AppendLine(string.Join(",", fields));
+            }
+            File.WriteAllText(path, sb.ToString());
         }
     }
 }
