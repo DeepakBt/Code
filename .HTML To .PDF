@@ -1,0 +1,74 @@
+ public class Program
+    {
+        static void Main(string[] args)
+        {
+            Program p = new Program();
+            byte[] byteArr;
+            byteArr= p.GetPDFBinaryData(@"D:\Deepak\POC\CoreML\HTMLToPDF\bin\Debug\netcoreapp2.0\Test.html", @"D:\Deepak\wkhtmltopdf\bin\wkhtmltoimage.exe");
+            File.WriteAllBytes(@"D:\testpdf.pdf", byteArr);
+        }
+        public byte[] GetPDFBinaryData(string url, string pathToExe = null)
+        {
+            int timeoutInSeconds = 30;
+            var timeout = DateTime.UtcNow.AddSeconds(timeoutInSeconds);
+            var savePdfTo = Path.GetTempFileName();
+            var t = Task.Run(() => GeneratePdf(url, savePdfTo, pathToExe));
+            while (!t.IsCompleted)
+            {
+                if (timeout < DateTime.UtcNow)
+                {
+                    break;
+                }
+                
+            }
+            while (!File.Exists(savePdfTo))
+            {
+                if (timeout < DateTime.UtcNow)
+                {
+                    break;
+                }
+               
+            }
+            while (File.GetLastWriteTimeUtc(savePdfTo).AddSeconds(2) >= DateTime.UtcNow)
+            {
+                if (timeout < DateTime.UtcNow)
+                {
+                    break;
+                }
+               
+            }
+            var bytes = File.ReadAllBytes(savePdfTo);
+            try
+            {
+                File.Delete(savePdfTo);
+            }
+            catch
+            {
+            }
+            return bytes;
+        }
+
+        private static void GeneratePdf(string url, string targetLocation, string pathToExe)
+        {
+            ExecuteCommand(pathToExe, $@"""{url}"" ""{targetLocation}""");
+        }
+
+        public static string ExecuteCommand(string pathToExe, string args)
+        {
+            try
+            {
+                System.Diagnostics.ProcessStartInfo procStartInfo = new System.Diagnostics.ProcessStartInfo(pathToExe, args);
+                procStartInfo.UseShellExecute = false;
+                procStartInfo.CreateNoWindow = true;
+                System.Diagnostics.Process proc = new System.Diagnostics.Process();
+                procStartInfo.RedirectStandardOutput = true;
+                proc.StartInfo = procStartInfo;
+                proc.Start();
+                proc.WaitForExit();
+            }
+            catch
+            {
+            }
+            return null;
+        }
+    }
