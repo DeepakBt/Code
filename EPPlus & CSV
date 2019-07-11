@@ -178,3 +178,121 @@ namespace PMSExportExcel
         }
     }
 }
+
+-------------------------------------------------------------------------------------
+
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Configuration;
+using System.Reflection;
+
+namespace CoreCSV
+{
+    public class VideoCSV
+    {
+        SqlCommand cmd;
+        string ErrorLogFile = ConfigurationManager.AppSettings.Get("ErrorLogFile").ToString();
+        DataAccess DA = new DataAccess();
+        public void ConvertToVideoCSV()
+        {
+            try
+            {
+                int MaxLoopCount,LoopCount,StartSet;
+                string CsvPath = ConfigurationManager.AppSettings.Get("VideoCSVPath").ToString();
+                string VideoSummary= ConfigurationManager.AppSettings.Get("SummaryVideoCSVPath").ToString();
+                string VideoAllocation = ConfigurationManager.AppSettings.Get("AllocationVideoCSVPath").ToString();
+                string VideoTransaction = ConfigurationManager.AppSettings.Get("TransactionVideoCSVPath").ToString();
+                if (!Directory.Exists(VideoSummary))
+                {
+                    Directory.CreateDirectory(VideoSummary);
+                }
+                if (!Directory.Exists(VideoAllocation))
+                {
+                    Directory.CreateDirectory(VideoAllocation);
+                }
+                if (!Directory.Exists(VideoTransaction))
+                {
+                    Directory.CreateDirectory(VideoTransaction);
+                }
+                VideoCSV objCsv = new VideoCSV();
+                DataTable dtLoopCt = new DataTable();
+                cmd = new SqlCommand();
+                cmd.Parameters.AddWithValue("@Flag", 2);
+                dtLoopCt=DA.ExecuteDataTable(ref cmd, "USP_PMS_ACCOUNT_DETAILS_VIDEO");
+                MaxLoopCount = Convert.ToInt32(dtLoopCt.Rows[0][0]);
+                StartSet= Convert.ToInt32(dtLoopCt.Rows[0][1]);
+                if(StartSet>0)
+                {
+                    LoopCount = StartSet+1;
+                }
+                else
+                {
+                    LoopCount = 1;
+                }
+                while(LoopCount<=MaxLoopCount)
+                {
+                    DataSet vDs = new DataSet();
+                    vDs = objCsv.GetVideoData(LoopCount);
+                    objCsv.DataTableToCSV(vDs.Tables[0], VideoSummary + "Video_Summary_SetNo_"+LoopCount.ToString()+".csv");
+                    objCsv.DataTableToCSV(vDs.Tables[1], VideoAllocation + "Video_Allocation_SetNo_" + LoopCount.ToString() + ".csv");
+                    objCsv.DataTableToCSV(vDs.Tables[2], VideoTransaction + "Video_Transaction_SetNo_" + LoopCount.ToString() + ".csv");
+                    Console.WriteLine("Set {0} is created",LoopCount);
+                    LoopCount = LoopCount + 1;
+                }
+                Console.WriteLine("Done");
+            }
+            catch (Exception ex)
+            {
+               
+                ErrorLogFile = ErrorLogFile + "_" + DateTime.Now.Year.ToString() + DateTime.Now.Month.ToString() + DateTime.Now.Date.ToString("dd") + ".txt";
+                File.AppendAllText(ErrorLogFile, "\r\n" + DateTime.Now.ToString() + "\r Method :" + MethodBase.GetCurrentMethod().Name.ToString() + " \r ERROR:" + ex.Message);
+                throw;
+            }
+        }
+        public DataSet GetVideoData(int SetNo)
+        {
+            try
+            {
+                DataSet Vds = new DataSet();
+                cmd = new SqlCommand();
+                cmd.Parameters.AddWithValue("@Flag", 1);
+                cmd.Parameters.AddWithValue("@SetNo", SetNo);
+                Vds = DA.ExecuteDataSet(ref cmd, "USP_PMS_ACCOUNT_DETAILS_VIDEO");
+                return Vds;
+            }
+            catch (Exception ex)
+            {
+                ErrorLogFile = ErrorLogFile + "_" + DateTime.Now.Year.ToString() + DateTime.Now.Month.ToString() + DateTime.Now.Date.ToString("dd") + ".txt";
+                File.AppendAllText(ErrorLogFile, "\r\n" + DateTime.Now.ToString() + "\r Method :" + MethodBase.GetCurrentMethod().Name.ToString() + " \r ERROR:" + ex.Message);
+                throw;
+
+            }
+        }
+        public void DataTableToCSV(DataTable dt, string path)
+        {
+            try
+            {
+                StringBuilder sb = new StringBuilder();
+                string[] columnNames = dt.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToArray();
+                sb.AppendLine(string.Join(",", columnNames));
+                foreach (DataRow row in dt.Rows)
+                {
+                    string[] fields = row.ItemArray.Select(field => field.ToString().Replace("\n","").Replace("\t","").Replace("\r","")).ToArray();
+                    sb.AppendLine(string.Join(",", fields));
+                }
+                File.WriteAllText(path, sb.ToString());
+            }
+            catch (Exception ex)
+            {
+                ErrorLogFile = ErrorLogFile + "_" + DateTime.Now.Year.ToString() + DateTime.Now.Month.ToString() + DateTime.Now.Date.ToString("dd") + ".txt";
+                File.AppendAllText(ErrorLogFile, "\r\n" + DateTime.Now.ToString() + "\r Method :" + MethodBase.GetCurrentMethod().Name.ToString() + " \r ERROR:" + ex.Message);
+                throw;
+            }
+        }
+    }
+}
+
