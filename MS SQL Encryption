@@ -25,3 +25,56 @@ SELECT CONVERT(VARCHAR(200),DECRYPTBYPASSPHRASE('key',@encryptDateTime))
 SET	@encrypt=CONVERt(varbinary(200),@textDateDecrypt,1)
 SET @starttime= CONVERT(VARCHAR(200),DECRYPTBYPASSPHRASE('StartKey', @encrypt))
 SET @TimeBonusPoint=@AnswerTime-(DATEDIFF(S,@starttime,GETDATE()))
+
+
+-----------------------------------------------------------------------
+ALTER PROCEDURE [dbo].[USP_GENERATE_NFO_URL]     
+/************************************************************************************************************************************************                                                            
+ '  Object Name   : USP_GENERATE_NFO_URL         
+ '  Purpose       :     
+ '  Author        : Deepak           
+ '  Creation Date : 14 Aug 2019         
+ '  Modified By   :            
+ '  Modified Date :           
+ '  Test          : EXEC USP_GENERATE_NFO_URL @BannerReqFor='NFO',@AppId='99D97163M527AA476EM944AC8BC85D39D141',@PanNo='HYJUH8765T',
+					@ReqToken='eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6Ik'
+************************************************************************************************************************************************/    
+(  
+ @BannerReqFor VARCHAR(200) = NULL,  
+ @AppId VARCHAR(200)   = NULL,  
+ @PanNo VARCHAR(10)   = NULL,  
+ @ReqToken VARCHAR(2000)  = NULL  
+)  
+AS     
+BEGIN TRY     
+	SET NOCOUNT ON     
+	SET TRANSACTION isolation level READ uncommitted  
+	DECLARE @URL AS VARCHAR(4000),@PlaneTime AS VARCHAR(50)
+	IF @BannerReqFor = 'nfo'  
+	BEGIN  
+		SELECT @PlaneTime=CONVERT(VARCHAR(50),FORMAT(GETDATE(),'yyyyMMddHHmmss'))
+		DECLARE @Yr AS VARCHAR(4),@Mn AS VARCHAR(2),@Dt AS VARCHAR(2),@Tm AS VARCHAR(6)
+
+		SELECT @Yr=SUBSTRING(@PlaneTime,1,4)
+		SELECT @Mn=SUBSTRING(@PlaneTime,5,2)
+		SELECT @Dt=SUBSTRING(@PlaneTime,7,2)
+		SELECT @Tm=SUBSTRING(@PlaneTime,9,6)
+
+		DECLARE @EncDate VARCHAR(50)
+		SET @EncDate= NEWID()
+		SET @EncDate  = STUFF(@EncDate, CHARINDEX('-', @EncDate), 1, @Yr)
+		SET @EncDate  = STUFF(@EncDate, CHARINDEX('-', @EncDate), 1, @Mn)
+		SET @EncDate  = STUFF(@EncDate, CHARINDEX('-', @EncDate), 1, @Dt)
+		SET @EncDate  = STUFF(@EncDate, CHARINDEX('-', @EncDate), 1, @Tm)
+
+		SET @URL='http://CampaignLogin?accessToken='+@ReqToken+'&appid='+@AppId+'&rt='+@EncDate+'&redirectTo=passivefunds/Purchase.aspx'
+		SELECT @URL AS 'URL'  
+	END  
+	ELSE  
+	BEGIN  
+		SELECT '' AS 'URL'  
+	END  
+END TRY  
+BEGIN catch     
+SELECT 0 AS 'Result','There was some error as '+ISNULL(ERROR_MESSAGE(),'') As 'Message';    
+END catch     
