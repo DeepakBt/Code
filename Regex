@@ -1,0 +1,14 @@
+<input type="text" id="TextBox1" />
+<br />
+<span id="spnError" style="color: Red; display: none">Invalid</span>
+<br />
+<input type="button" value = "Validate" onclick = "return Validate()"/>
+<script type="text/javascript">
+    function Validate() {
+        var isValid = false;
+        var regex = /^[ A-Za-z0-9_@.-]*$/;
+        isValid = regex.test(document.getElementById("TextBox1").value);
+        document.getElementById("spnError").style.display = !isValid ? "block" : "none";
+        return isValid;
+    }
+</script>
