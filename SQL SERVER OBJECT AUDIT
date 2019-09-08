@@ -1,0 +1,59 @@
+CREATE TABLE dbo.AuditObjects
+(
+	ObjectId		BIGINT IDENTITY PRIMARY KEY,
+	DatabaseName	NVARCHAR(500),
+    SchemaName		NVARCHAR(500),
+    ObjectName		NVARCHAR(500),
+    ObjectType		NVARCHAR(100),
+    ObjectText		NVARCHAR(MAX),
+    ObjectXMLText   XML,
+    HostName		VARCHAR(200),
+    HostIPAddress   VARCHAR(100),
+    ProgramName		NVARCHAR(500),
+    LoginName		NVARCHAR(500),
+	CreatedOn		DATETIME NOT NULL DEFAULT GETDATE(),
+);
+
+/************************************************************************************************************************************************                                                  
+ '     Object Name   : AuditObjectTrigger
+ '     Purpose       : To Audit Functions and Procedures on Create,Alter and Drop
+ '     Author        : Deepak
+ '     Creation Date : 08-Sep-2019
+ '	   Modified By   :
+ '	   Modified Date :
+************************************************************************************************************************************************/    
+ALTER TRIGGER AuditObjectTrigger
+	ON DATABASE
+    FOR CREATE_PROCEDURE, ALTER_PROCEDURE, DROP_PROCEDURE,CREATE_FUNCTION,ALTER_FUNCTION,DROP_FUNCTION
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @EventData XML = EVENTDATA();
+ 
+    DECLARE @ip varchar(100) = CONVERT(varchar(48),CONNECTIONPROPERTY('client_net_address'));
+	
+	  INSERT INTO dbo.AuditObjects
+	  (
+		DatabaseName,
+		SchemaName,
+		ObjectName,
+		ObjectType,
+		ObjectText,
+		ObjectXMLText,
+		HostName,
+		HostIPAddress,
+		ProgramName,
+		LoginName
+	  )
+	  SELECT
+		DB_NAME(),
+		@EventData.value('(/EVENT_INSTANCE/SchemaName)[1]',  'NVARCHAR(500)'), 
+		@EventData.value('(/EVENT_INSTANCE/ObjectName)[1]',  'NVARCHAR(500)'),
+        @EventData.value('(/EVENT_INSTANCE/EventType)[1]',   'NVARCHAR(100)'), 
+        @EventData.value('(/EVENT_INSTANCE/TSQLCommand)[1]', 'NVARCHAR(MAX)'),
+        @EventData,
+        HOST_NAME(),
+        @ip,
+        PROGRAM_NAME(),
+        SUSER_SNAME();
+END
