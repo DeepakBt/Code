@@ -1,1 +1,62 @@
 SC CREATE "BODServices" binpath= "D:\InstallServices\Debug\BODServices.exe"
+
+
+
+--Call DBJobs 
+SqlConnection DbConn = new SqlConnection(YourConnectionString);
+SqlCommand ExecJob = new SqlCommand();
+ExecJob.CommandType = CommandType.StoredProcedure;
+ExecJob.CommandText = "msdb.dbo.sp_start_job";
+ExecJob.Parameters.AddWithValue("@job_name", "YourJobName")
+ExecJob.Connection = DbConn; //assign the connection to the command.
+
+using (DbConn)
+{
+    DbConn.Open();
+    using (ExecJob)
+    {
+        ExecJob.ExecuteNonQuery();
+    }
+}
+
+
+------------------------
+
+public void RunPackage()
+        {
+            try
+            {
+                ServicetxtLog(StepFolder, ServiceLog, "", "Started", MethodBase.GetCurrentMethod().Name.ToString());
+                Application app = new Application();
+                Package package = null;
+                app.PackagePassword = PackagePassword;
+                package = app.LoadPackage(PackageLocation, null);
+               
+                DTSExecResult results = package.Execute();
+                if (results == DTSExecResult.Failure)
+                {
+                    string err = "";
+                    foreach (DtsError local_DtsError in package.Errors)
+                    {
+                        string error = local_DtsError.Description.ToString();
+                        err = err + error;
+                    }
+                    if (err != "")
+                    {
+                        ServicetxtLog(StepFolder, ServiceLog, "ERROR", err.ToString(), MethodBase.GetCurrentMethod().Name.ToString());
+                    }
+                }
+                if (results == DTSExecResult.Success)
+                {
+                    ServicetxtLog(StepFolder, ServiceLog, "", "Package Executed Successfully", MethodBase.GetCurrentMethod().Name.ToString());
+                }else
+                {
+                    ServicetxtLog(StepFolder, ServiceLog, "", "Package Executed With Error", MethodBase.GetCurrentMethod().Name.ToString());
+                }
+                ServicetxtLog(StepFolder, ServiceLog, "", "End", MethodBase.GetCurrentMethod().Name.ToString());
+            }
+            catch (Exception ex)
+            {
+                ServicetxtLog(ErrorFolder, ServiceLog, "ERROR", ex.Message.ToString(), MethodBase.GetCurrentMethod().Name.ToString());
+            }
+        }
