@@ -60,3 +60,42 @@ public void RunPackage()
                 ServicetxtLog(ErrorFolder, ServiceLog, "ERROR", ex.Message.ToString(), MethodBase.GetCurrentMethod().Name.ToString());
             }
         }
+        
+        
+        -------------------------Auto Run Every 6 Sec------------------------------
+using System;
+using System.ServiceProcess;
+using System.IO;
+using System.Timers;
+
+namespace MyWindowsServices
+{
+    public partial class Service1 : ServiceBase
+    {
+        string path = AppDomain.CurrentDomain.BaseDirectory;
+        Timer timer = new Timer();
+        public Service1()
+        {
+            InitializeComponent();
+        }
+
+        protected override void OnStart(string[] args)
+        {
+            File.AppendAllText(path+"Log\\newData.txt","\n"+DateTime.Now.ToString()+" New Line Added On Start");
+            timer.Elapsed += new ElapsedEventHandler(OnElapsedTime);
+            timer.Interval = 6000;
+            timer.Enabled = true;
+        }
+
+        protected override void OnStop()
+        {
+            File.AppendAllText(path + "Log\\newData.txt", "\n" + DateTime.Now.ToString() + " New Line Added onStop");
+            timer.Enabled = false;
+        }
+        public void OnElapsedTime(object source, ElapsedEventArgs e)
+        {
+            File.AppendAllText(path + "Log\\newData.txt", "\n" + DateTime.Now.ToString() + " New Line Added On OnElapsedTime");
+        }
+    }
+}
+
