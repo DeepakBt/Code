@@ -1,0 +1,113 @@
+DECLARE @TableName AS VARCHAR(100)
+SET @TableName='AMC_Client_Details'
+
+IF OBJECT_ID('tempdb..#TempColumns') IS NOT NULL DROP TABLE #TempColumns
+Select IDENTITY(INT) AS 'ID',CName INTO #TempColumns from (
+Select 'client_UCID' AS 'CName' Union All
+Select 'PAN_NO' Union All
+Select 'family_seq_id' Union All
+Select 'client_first_name' Union All
+Select 'client_middle_name' Union All
+Select 'client_last_name' Union All
+Select 'email' Union All
+Select 'primary_contact_number' Union All
+Select 'date_of_onboadring' Union All
+Select 'security_question' Union All
+Select 'security_answer' Union All
+Select 'user_screen_name' Union All
+Select 'date_of_birth' Union All
+Select 'anniversary' Union All
+Select 'marital_status' Union All
+Select 'gender' Union All
+Select 'RM_Employee_ID' Union All
+Select 'target_returns' Union All
+Select 'client_type' Union All
+Select 'goal_benchmark_index' Union All
+Select 'Risk_Type_Master_ID' Union All
+Select 'status' Union All
+Select 'MF' Union All
+Select 'PMS' Union All
+Select 'created_dt' Union All
+Select 'modified_dt' Union All
+Select 'is_financial_planning_done' Union All
+Select 'passport_no' Union All
+Select 'MailSend' Union All
+Select 'MF_DATE' Union All
+Select 'pmsDate' Union All
+Select 'CLIENTADDRESS' Union All
+Select 'AuditReport' Union All
+Select 'NRIFlag' Union All
+Select 'im_invaadhaaruid' Union All
+Select 'im_invaadhaarSeedFlag' Union All
+Select 'kyc_complait' 
+)T
+
+IF OBJECT_ID('tempdb..#TempObjs') IS NOT NULL DROP TABLE #TempObjs
+SELECT DISTINCT IDENTITY(INT) AS 'ID',o.name ,o.xtype,Convert(VARCHAR(MAX),'') AS 'ColumnNotUsed' INTO #TempObjs
+FROM syscomments c
+INNER JOIN sysobjects o ON c.id=o.id
+WHERE c.TEXT LIKE '%'+@TableName+'%'
+
+--Select * from #TempObjs
+--Select * from #TempColumns
+
+DECLARE @ObjectCount INT,@MaxObjectCount INT,@ProcName VARCHAR(200),@ColCount INT,@MaxColCount INT,@ColName VARCHAR(200)
+
+SELECT  @MaxObjectCount=MAX(ID),@ObjectCount=MIN(ID) FROM #TempObjs
+SELECT @MaxColCount=MAX(ID),@ColCount=MIN(ID) FROM #TempColumns
+
+IF OBJECT_ID('tempdb..#TempExistPro') IS NOT NULL DROP TABLE #TempExistPro
+CREATE TABLE #TempExistPro
+(
+	ID INT IDENTITY(1,1),
+	[Name] VARCHAR(200),
+	ColNameNotUsed VARCHAR(200),
+	xType   VARCHAR(10),
+	ColumnNotUsed VARCHAR(MAX)
+)
+
+WHILE @ObjectCount<=@MaxObjectCount
+BEGIN
+	IF OBJECT_ID('tempdb..#TempExist') IS NOT NULL DROP TABLE #TempExist
+	CREATE TABLE #TempExist
+	(
+		ColName VARCHAR(200)
+	)
+
+	SELECT @ProcName=[name] FROM #TempObjs WHERE ID=@ObjectCount
+
+	WHILE @ColCount<=@MaxColCount
+	BEGIN
+		
+		SELECT @ColName=CName FROM #TempColumns WHERE ID=@ColCount
+		IF EXISTS(	
+					SELECT * FROM 
+						(
+						SELECT S.[text] AS 'ObjectText' FROM SYSCOMMENTS S WITH(NOLOCK) 
+						LEFT OUTER JOIN SYS.PROCEDURES P WITH(NOLOCK) 
+						ON S.id=P.object_id
+						WHERE P.[NAME]=@ProcName
+						)T WHERE T.ObjectText LIKE '%'+@ColName+'%'
+				 )
+				 BEGIN
+					INSERT INTO #TempExist VALUES(@ColName)
+				 END
+		SET @ColCount=@ColCount+1
+	END
+
+	DECLARE @tmpCol VARCHAR(MAX)
+	SET @tmpCol = ''
+	SELECT @tmpCol = @tmpCol + CName + ', ' FROM #TempColumns WHERE CName NOT IN (SELECT ColName FROM #TempExist)
+	UPDATE #TempObjs SET ColumnNotUsed=SUBSTRING(@tmpCol, 0, LEN(@tmpCol)) WHERE ID=@ObjectCount
+
+	INSERT INTO #TempExistPro([Name],ColNameNotUsed,ColumnNotUsed)
+	SELECT @ProcName,CName,@tmpCol FROM #TempColumns WHERE CName NOT IN (SELECT ColName FROM #TempExist) 
+
+	SET @ColCount=1
+	SET @ObjectCount=@ObjectCount+1
+	PRINT 'ObjectId : '+CONVERT(VARCHAR(10),@ObjectCount)+' '+'ObjectName : '+@ProcName
+END
+
+SELECT * FROM (
+SELECT ColNameNotUsed,COunt(ColNameNotUsed) AS 'C' FROM #TempExistPro Group By ColNameNotUsed
+)T WHERE T.C>=152
