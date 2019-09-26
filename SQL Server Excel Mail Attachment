@@ -1,0 +1,38 @@
+DECLARE @Delimiter Char(1),@QueryStr AS VARCHAR(MAX)
+	SET @Delimiter = '|'
+	SELECT @QueryStr='SET NOCOUNT ON;Select 
+						ISNULL(Leadfrom,'''')AS ''Leadfrom'',
+						ISNULL(traveller1Name,'''')AS ''traveller1Name'',
+						ISNULL(traveller1Mobile,'''')AS ''traveller1Mobile'',
+						ISNULL(traveller1Email,'''')AS ''traveller1Email'',
+						ISNULL(traveller1Gender,'''')AS ''traveller1Gender'',
+						ISNULL(traveller1Pincode,'''')AS ''traveller1Pincode'',
+						ISNULL(traveller1State,'''')AS ''traveller1State'',
+						ISNULL(traveller1City,'''')AS ''traveller1City'',
+						ISNULL(traveller2Name,'''')AS ''traveller2Name'',
+						ISNULL(traveller2Mobile,'''')AS ''traveller2Mobile'',
+						ISNULL(traveller2Email,'''')AS ''traveller2Email'',
+						ISNULL(traveller2Gender,'''')AS ''traveller2Gender'',
+						ISNULL(traveller2Pincode,'''')AS ''traveller2Pincode'',
+						ISNULL(traveller2State,'''')AS ''traveller2State'',
+						ISNULL(traveller2City,'''')AS ''traveller2City'',
+						ISNULL(cratedOn,'''')AS ''cratedOn''
+						FROM Tbl_MOTEC_LeadCapture WHERE ExcelFlagExp=0;SET NOCOUNT ON;'
+  
+	EXEC msdb.dbo.Sp_send_dbmail       
+	@PROFILE_NAME  = 'Test',        
+	@FROM_ADDRESS  = 'Tes.dev@Test.com',    
+	@RECIPIENTS  = 'Test.dev@Tes.com;Tes.Test@Test.com',  
+	@SUBJECT   = 'Test',       
+	@BODY    = 'Some Excel Data',      
+	@execute_query_database='NewTest',
+	@Query=@QueryStr,
+	@Attach_Query_Result_As_File = 1,
+	@Query_Result_Header = 1,
+	@Query_Attachment_Filename = 'LeadCaptured.csv',
+	@body_format = 'TEXT',
+	@file_attachments = null,
+	@Query_Result_Separator = @Delimiter,         
+	@exclude_query_output = 0,
+	@append_query_error = 1,
+	@query_result_no_padding =1
