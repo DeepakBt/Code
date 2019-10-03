@@ -1,0 +1,31 @@
+ using (var conn = MyConnection)
+                {
+                    var dataSave = await conn.QueryMultipleAsync("MySpDetails", new
+                    {
+                        PanNo = PanNo
+                    }, commandType: CommandType.StoredProcedure);
+                    {
+                        var MainOrder = dataSave.Read<OrderRequest>().First();
+                        var ChildOrder = dataSave.Read<OrderRecord>().ToList();
+                        var BankDetails = dataSave.Read<ReqSIPPending>().First();
+
+                        ObjResponse._OrderRequest.MainOrderId = Convert.ToString(MainOrder.MainOrderId) ?? "";
+                        ObjResponse._OrderRequest.Amount= Convert.ToString(MainOrder.Amount) ?? "";
+                        ObjResponse._OrderRequest.TimeStamp = Convert.ToString(MainOrder.TimeStamp) ?? "";
+                        ObjResponse.BankAccNo = Convert.ToString(BankDetails.BankAccNo) ?? "";
+                        ObjResponse.BankId = Convert.ToString(BankDetails.BankId) ?? "";
+                        ObjResponse.FolioNo = Convert.ToString(BankDetails.FolioNo) ?? "";
+
+                        if (ChildOrder.Count() > 0)
+                        {
+                            for (int i = 0; i <= ChildOrder.Count() - 1; i++)
+                            {
+                                OrderRecord ObjOList = new OrderRecord();
+                                ObjOList.Amount = Convert.ToString(ChildOrder[i].Amount) ?? "";
+                                ObjOList.ChildOrderId= Convert.ToString(ChildOrder[i].ChildOrderId) ?? "";
+                                lstOrder.Add(ObjOList);
+                            }
+                            ObjResponse._OrderRequest.itemDetails = lstOrder;
+                        }
+                    }
+                }
