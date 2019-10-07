@@ -1,0 +1,64 @@
+public static string CreateHTTPPOSTRequest(string serviceUrl, string inputJson)
+        {
+            HttpWebRequest httpRequest = (HttpWebRequest)WebRequest.Create(new Uri(serviceUrl));
+            httpRequest.Accept = "application/json";
+            httpRequest.ContentType = "application/json";
+            httpRequest.Method = "POST";
+
+            byte[] bytes = Encoding.UTF8.GetBytes(inputJson);
+
+            using (Stream stream = httpRequest.GetRequestStream())
+            {
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Close();
+            }
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            string result = "";
+            try
+            {
+
+                using (HttpWebResponse httpResponse = (HttpWebResponse)httpRequest.GetResponse())
+                {
+                    using (Stream stream = httpResponse.GetResponseStream())
+                    {
+                        string s = (new StreamReader(stream)).ReadToEnd();
+                        result = JsonConvert.DeserializeObject(s).ToString();
+                        return result;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                File.AppendAllText("D:\\UtilitiesCreateHTTPPOSTRequest.txt", "\r\n" + DateTime.Now.ToString() + " " + serviceUrl + " Error : " + ex.Message);
+                return "";
+            }
+        }
+        public static string CreateHTTPGETRequest(string serviceUrl)
+        {
+            try
+            {
+                var request = (HttpWebRequest)WebRequest.Create(serviceUrl);
+                request.Method = "GET";
+                request.Accept = "application/json";
+                request.ContentType = "application/json";
+
+                var content = string.Empty;
+
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    using (var stream = response.GetResponseStream())
+                    {
+                        using (var sr = new StreamReader(stream))
+                        {
+                            content = sr.ReadToEnd();
+                        }
+                    }
+                }
+                return content;
+            }
+            catch (Exception ex)
+            {
+                File.AppendAllText("D:\\UtilitiesCreateHTTPGETRequest.txt", "\r\n" + DateTime.Now.ToString() + " " + serviceUrl + " Error : " + ex.Message);
+                return "";
+            }
+        }
