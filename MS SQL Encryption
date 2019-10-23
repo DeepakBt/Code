@@ -78,3 +78,52 @@ END TRY
 BEGIN catch     
 SELECT 0 AS 'Result','There was some error as '+ISNULL(ERROR_MESSAGE(),'') As 'Message';    
 END catch     
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+
+/******************************************************************
+	Author		:	Deepak
+	Date		:	15 Oct 2019
+	Purpose		:	To Decrypt Given Text Based On Key Master
+	Example		:	SELECT dbo.UDF_Decryption('0x010000003F728FF98CC9A7D98463BBC70F351CF5DA0CD5972A9FA3BDC2FA989DBC4546A4',1)
+******************************************************************/
+CREATE FUNCTION [dbo].[UDF_Decryption]
+(
+	@EncryptText		VARCHAR(200),
+	@KeyId				TINYINT
+)
+RETURNS VARCHAR(200)
+AS
+BEGIN
+	DECLARE @DecryptedText AS VARCHAR(200),@Key VARCHAR(50)
+	SELECT @Key=[KEY] FROM TBL_SECURITY_KEY_MST WITH(NOLOCK) WHERE KeyId=@KeyId
+	SELECT @DecryptedText = CONVERT(VARCHAR(200),DECRYPTBYPASSPHRASE(@Key,CONVERT(VARBINARY(200),@EncryptText,1)))
+	RETURN @DecryptedText
+END
+GO
+/****** Object:  UserDefinedFunction [dbo].[UDF_Encryption]    Script Date: 23-10-2019 09:35:38 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/******************************************************************
+	Author		:	Deepak
+	Date		:	15 Oct 2019
+	Purpose		:	To Encrypt Given Text Based On Key Master
+	Example		:	SELECT dbo.UDF_Encryption('&^**Pa@#$',1)
+******************************************************************/
+CREATE FUNCTION [dbo].[UDF_Encryption]
+(
+	@PlanText		VARCHAR(50),
+	@KeyId			TINYINT
+)
+RETURNS VARCHAR(200)
+AS
+BEGIN
+	DECLARE @EncryptedText AS VARCHAR(200),@Key VARCHAR(50)
+	SELECT @Key=[KEY] FROM TBL_SECURITY_KEY_MST WITH(NOLOCK) WHERE KeyId=@KeyId
+	SELECT @EncryptedText = CONVERT(VARCHAR(200),ENCRYPTBYPASSPHRASE(@Key,@PlanText),1)
+	RETURN @EncryptedText
+END
