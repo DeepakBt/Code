@@ -1,0 +1,189 @@
+using System;
+using System.Data.SqlClient;
+using System.Data;
+using System.IO;
+using System.Configuration;
+using System.Diagnostics;
+using OfficeOpenXml;
+
+namespace ExcelExportUtility
+{
+    class Program
+    {
+        SqlCommand cmd;
+        DataAccess DA = new DataAccess();
+        static string LogFile = ConfigurationManager.AppSettings["LogFile"];
+        static void Main(string[] args)
+        {
+            Program ObjProgram = new Program();
+            ObjProgram.GenerateExcel();
+            ObjProgram.SendMail();
+        }
+        public DataTable GetData()
+        {
+            DataTable dt = new DataTable();
+            try
+            {                
+                cmd = new SqlCommand();
+                cmd.Parameters.AddWithValue("@Flag", 1);
+                dt = DA.ExecuteDataTable(ref cmd, "USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL");
+            }
+            catch (Exception ex)
+            {
+                ConsoletxtLog("Error", ex.Message.ToString(), "GetData");
+            }
+            return dt;
+        }
+        public void GenerateExcel()
+        {
+            try
+            {
+                DataTable dt = new DataTable();
+                string ExcelName = ConfigurationManager.AppSettings.Get("ExcelName").ToString();
+                string ExcelPath = ConfigurationManager.AppSettings.Get("ExcelPath").ToString();
+                if (!Directory.Exists(ExcelPath))
+                {
+                    DirectoryInfo di = Directory.CreateDirectory(ExcelPath);
+                }
+                ExcelPath = ConfigurationManager.AppSettings.Get("ExcelPath").ToString() + ExcelName;
+                if (File.Exists(ExcelPath))
+                {
+                    File.Delete(ExcelPath);
+                }
+                dt = GetData();
+                using (ExcelPackage pck = new ExcelPackage())
+                {
+                    ExcelWorksheet workSheet = pck.Workbook.Worksheets.Add(dt.TableName);
+                    workSheet.Cells["A1"].LoadFromDataTable(dt, true);
+                    workSheet.Cells.AutoFitColumns();
+                    int totalCols = workSheet.Dimension.End.Column;
+                    var headerCells = workSheet.Cells[1, 1, 1, totalCols];
+                    var headerFont = headerCells.Style.Font;
+                    headerFont.Bold = true;
+                    pck.SaveAs(new FileInfo(ExcelPath));
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsoletxtLog("Error", ex.Message.ToString(), "GenerateExcel");
+            }
+            finally
+            {
+                foreach (Process process in Process.GetProcessesByName("Excel"))
+                {
+                    process.Kill();
+                }
+            }
+        }
+        public void SendMail()
+        {
+            try
+            {
+                cmd = new SqlCommand();
+                cmd.Parameters.AddWithValue("@Flag", 2);
+                DA.ExecuteDataTable(ref cmd, "USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL");
+            }
+            catch (Exception ex)
+            {
+                ConsoletxtLog("Error", ex.Message.ToString(), "SendMail");
+            }
+        }
+        public static void ConsoletxtLog(string MsgType, string ErrorMsg, string MethoName)
+        {
+            LogFile = LogFile + "\\" + "Log_" + "_" + DateTime.Now.Year.ToString() + DateTime.Now.ToString("MM") + DateTime.Now.Date.ToString("dd") + ".txt";
+            File.AppendAllText(LogFile, "\r\n" + DateTime.Now.ToString() + "\r Method : " + MethoName + " \r " + MsgType + " : " + ErrorMsg);
+        }
+    }
+}
+-------------------------------------------------------------------------------------
+
+/****** Object:  StoredProcedure [dbo].[USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL]    Script Date: 24-10-2019 13:55:52 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/************************************************************************************************************************************************                                                        
+ '  Object Name   : USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL    
+ '  Purpose       : To Generate Excel and Send Mail 
+ '  Author        : Deepak      
+ '  Creation Date : 24 Oct 2019    
+ '  Modified By   :       
+ '  Modified Date :      
+ '  Test          : EXEC USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL 3,'D:\ExcelExportUtility\bin\Debug\ExcelExportUtility.exe'    
+************************************************************************************************************************************************/    
+ALTER PROCEDURE [dbo].[USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL] 
+(
+	@Flag TinyINt = NULL,
+	@MyExe VARCHAR(500) = NULL
+)
+AS       
+BEGIN TRY      
+	SET NOCOUNT ON      
+	SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED 
+	DECLARE @Hourly BIT,@SUBJECT AS VARCHAR(500)
+	SELECT @Hourly=CASE WHEN CONVERT(TINYINT,LEFT(CONVERT(TIME,GETDATE()),2)) BETWEEN 10 AND 19 THEN 1 ELSE 0 END
+	IF @Flag=1
+		IF @Hourly=1
+		BEGIN
+			PRINT 'Hourly'		
+			SELECT 
+				ISNULL(Leadfrom,'')			AS		'Leadfrom',
+				ISNULL(PANno,'')			AS		'PANno',
+				ISNULL(Name,'')				AS		'Name',
+				ISNULL(MobileNo,'')			AS		'MobileNo',
+				ISNULL(EmailID,'')			AS		'EmailID',
+				ISNULL(utm_campaign,'')		AS		'utm_campaign',
+				ISNULL(utm_source,'')		AS		'ARN',
+				ISNULL(utm_medium,'')		AS		'utm_medium',
+				ISNULL(utm_creative,'')		AS		'utm_creative',
+				ISNULL(placement,'')		AS		'placement',
+				ISNULL(utm_device,'')		AS		'utm_device',
+				ISNULL(CONVERT(VARCHAR(30),cratedOn,121),'')		AS		'Created_On'
+			FROM Tbl_MOTEC_CallFromCapture WHERE cratedOn>DATEADD(HOUR, -1, GETDATE());
+		END
+		ELSE
+		BEGIN
+			DECLARE @STime TIME
+			SET @STime=CONVERT(TIME,GETDATE())
+			IF (@STime >= '09:00:00.0000000' AND @STime<='10:01:00.0000000')
+			BEGIN
+				PRINT 'EveningBulk'
+				SELECT
+					ISNULL(Leadfrom,'')			AS		'Leadfrom',
+					ISNULL(PANno,'')			AS		'PANno',
+					ISNULL(Name,'')				AS		'Name',
+					ISNULL(MobileNo,'')			AS		'MobileNo',
+					ISNULL(EmailID,'')			AS		'EmailID',
+					ISNULL(utm_campaign,'')		AS		'utm_campaign',
+					ISNULL(utm_source,'')		AS		'ARN',
+					ISNULL(utm_medium,'')		AS		'utm_medium',
+					ISNULL(utm_creative,'')		AS		'utm_creative',
+					ISNULL(placement,'')		AS		'placement',
+					ISNULL(utm_device,'')		AS		'utm_device',
+					ISNULL(CONVERT(VARCHAR(30),cratedOn,121),'')			AS		'Created_On'
+				FROM Tbl_MOTEC_CallFromCapture WHERE cratedOn 
+				BETWEEN DATEADD(HOUR,19,CONVERT(DATETIME,CONVERT(DATE,GETDATE()-1))) AND DATEADD(HOUR,9,CONVERT(DATETIME,CONVERT(DATE,GETDATE())))
+			END
+	END
+	ELSE IF @Flag=2
+	BEGIN
+
+		SELECT @SUBJECT = CASE WHEN @Hourly=1 THEN 'Hourly MO Lead Call From Capture' ELSE 'MO Lead Call From Capture' END
+		EXEC msdb.dbo.Sp_send_dbmail       
+		@PROFILE_NAME		= 'AMC Emails',       
+		@SUBJECT			= @SUBJECT,       
+		@RECIPIENTS			= 'Kamal.Gupta@motilaloswal.com;moamc.dev@motilaloswal.com;Suryakant.Katariya@motilaloswal.com',  
+		@BODY				= 'Find Attached Excel',      
+		@file_attachments	= 'D:\DBExcelDataExport\Data.xlsx',       
+		@BODY_FORMAT		= 'HTML'       
+		SELECT 'MailSend' AS 'Messge'
+	END
+	ELSE IF @Flag=3
+	BEGIN
+		EXEC master..xp_cmdshell @MyExe
+	END
+	END TRY
+BEGIN CATCH       
+	SELECT '0' AS MsgCode, ERROR_MESSAGE() AS MsgMessage     
+END CATCH
+
