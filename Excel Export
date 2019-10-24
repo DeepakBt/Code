@@ -1,0 +1,111 @@
+using System;
+using System.Data.SqlClient;
+using System.IO;
+using System.Configuration;
+using Microsoft.Office.Interop.Excel;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
+
+namespace CallDumpExportExcel
+{
+    class Program
+    {
+        SqlCommand cmd;
+        DataAccess DA = new DataAccess();
+        static string LogFile = ConfigurationManager.AppSettings["LogFile"];
+        static void Main(string[] args)
+        {
+            Program ObjProgram = new Program();
+            ObjProgram.GenerateExcel();
+            ObjProgram.SendMail();
+        }
+        public System.Data.DataTable GetData()
+        {
+            System.Data.DataTable dt = new System.Data.DataTable();
+            try
+            {
+                cmd = new SqlCommand();
+                cmd.Parameters.AddWithValue("@Flag", 1);
+                dt = DA.ExecuteDataTable(ref cmd, "USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL");
+            }
+            catch (Exception ex)
+            {
+                ConsoletxtLog("Error", ex.Message.ToString(), "GetData");
+            }
+            return dt;
+        }
+        public void GenerateExcel()
+        {
+            try
+            {
+                System.Data.DataTable dt = new System.Data.DataTable();
+                string ExcelName = ConfigurationManager.AppSettings.Get("ExcelName").ToString();
+                string ExcelPath = ConfigurationManager.AppSettings.Get("ExcelPath").ToString();
+                if (!Directory.Exists(ExcelPath))
+                {
+                    DirectoryInfo di = Directory.CreateDirectory(ExcelPath);
+                }
+                ExcelPath = ConfigurationManager.AppSettings.Get("ExcelPath").ToString() + ExcelName;
+                if (File.Exists(ExcelPath))
+                {
+                    File.Delete(ExcelPath);
+                }
+                dt = GetData();
+                Application ExcelApp = new Application();
+                Workbook ExcelWorkBook = null;
+                Worksheet ExcelWorkSheet = null;
+                ExcelWorkBook = ExcelApp.Workbooks.Add(XlWBATemplate.xlWBATWorksheet);
+                ExcelWorkSheet = ExcelWorkBook.Worksheets[1];
+                for (int i = 1; i < dt.Columns.Count + 1; i++)
+                {
+                    ExcelWorkSheet.Cells[1, i] = dt.Columns[i - 1].ColumnName;
+                }
+                for (int j = 0; j < dt.Rows.Count; j++)
+                {
+                    for (int k = 0; k < dt.Columns.Count; k++)
+                    {
+                        ExcelWorkSheet.Cells[j + 2, k + 1] = dt.Rows[j].ItemArray[k].ToString();
+                    }
+                }
+                ExcelWorkSheet.Name = "Sheet1";
+                ExcelWorkSheet.Columns.AutoFit();
+                ExcelWorkSheet.Cells[1].EntireRow.Font.Bold = true;
+                ExcelWorkBook.SaveAs(ExcelPath);
+                ExcelWorkBook.Close();
+                ExcelApp.Quit();
+                Marshal.ReleaseComObject(ExcelWorkSheet);
+                Marshal.ReleaseComObject(ExcelWorkBook);
+                Marshal.ReleaseComObject(ExcelApp);
+            }
+            catch (Exception ex)
+            {
+                ConsoletxtLog("Error", ex.Message.ToString(), "GenerateExcel");
+            }
+            finally
+            {
+                foreach (Process process in Process.GetProcessesByName("Excel"))
+                {
+                    process.Kill();
+                }
+            }
+        }
+        public void SendMail()
+        {
+            try
+            {
+                cmd = new SqlCommand();
+                cmd.Parameters.AddWithValue("@Flag", 2);
+                DA.ExecuteDataTable(ref cmd, "USP_CALLFROMCAPTURE_GENERATE_DATA_EXCEL");
+            }
+            catch (Exception ex)
+            {
+                ConsoletxtLog("Error", ex.Message.ToString(), "SendMail");
+            }
+        }
+        public static void ConsoletxtLog(string MsgType, string ErrorMsg, string MethoName)
+        {
+            LogFile = LogFile + "\\" + "Log_" + "_" + DateTime.Now.Year.ToString() + DateTime.Now.ToString("MM") + DateTime.Now.Date.ToString("dd") + ".txt";
+            File.AppendAllText(LogFile, "\r\n" + DateTime.Now.ToString() + "\r Method : " + MethoName + " \r " + MsgType + " : " + ErrorMsg);
+        }
+    }
+}
