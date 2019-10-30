@@ -1,0 +1,103 @@
+ -----------------------------------------POST--------------------------------------------------------------------
+ <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+            type = 'latest';
+            code = 'MO19233';
+            var input = JSON.stringify({ 'type': type, 'code': code });
+            $.ajax({
+                type: "POST",
+                data: input,
+                url: "http://localhost:65402/api/SchemeDetails/LatestNAVList",
+                contentType: "application/json;charset=utf-8",
+                dataType: "json",
+                success: function (result) {
+                    debugger;
+                    var response = result.data;
+                    console.log(response);
+                    $('#mydata').text(response.listOfData[0].mo_sch_Name);
+                },
+                error: function (xhr, textStatus, errorThrown) {
+                    //     $("#updateProgress").hide();
+                    alert("Error Occurred");
+                }
+            });
+        });
+    </script>
+	
+	-------------------------------------------------POST-----------------------------------------------------------
+	
+	<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+            mf_schcode = '19233';
+            topHolding = '5';
+            var input = JSON.stringify({ 'mf_schcode': mf_schcode, 'top': topHolding });
+
+            debugger;
+            $.ajax({
+                type: "POST",
+                data: input,
+                url: "http://localhost:65402/api/SchemeDetails/TopHoldings",
+                contentType: "application/json;charset=utf-8",
+                dataType: "json",
+                success: function (result) {
+                    debugger;
+                    var response = result.data;
+                    console.log(response);
+                    $('#mydata').text(response.listOfData[0].co_code);
+                },
+                error: function (xhr, textStatus, errorThrown) {
+                    //     $("#updateProgress").hide();
+                    alert("Error Occurred");
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div id="mydata">
+
+    </div>
+</body>
+</html>
+
+
+-----------------------------------------------------------GET-------------------------------------------
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            debugger;
+            $.ajax({
+                type: "GET",
+                url: "http://localhost:65402/api/SchemeDetails/SchemesMaster",
+                contentType: "application/json;charset=utf-8",
+                dataType: "json",
+                success: function (result) {
+                    debugger;
+                    var response = result.data;
+                    console.log(response);
+                    $('#mydata').text(response.listOfData[0].mF_COCODE + ',' + response.listOfData[0].mF_SCHCODE);
+                },
+                error: function (xhr, textStatus, errorThrown) {
+                    //     $("#updateProgress").hide();
+                    alert("Error Occurred");
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div id="mydata">
+
+    </div>
+</body>
+</html>
