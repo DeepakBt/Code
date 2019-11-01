@@ -1,0 +1,7 @@
+BULK INSERT dbo.Rpl_BankDetails_New
+FROM 'D:\Package\FlatFiles\Call_BankDetails_New.txt'
+WITH
+(
+FIELDTERMINATOR = '~',
+ROWTERMINATOR = '\n'
+)
