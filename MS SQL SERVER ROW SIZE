@@ -1,0 +1,4 @@
+IF OBJECT_ID('tempdb..#tmpRowSize') IS NOT NULL DROP TABLE #tmpRowSize
+CREATE TABLE #tmpRowSize (TableName VARCHAR(1000),RowSize INT)
+EXEC sp_msforeachtable 'INSERT INTO #tmpRowSize Select ''?'' As TableName, SUM(C.Length) as Length from dbo.SysColumns C where C.id = object_id(''?'') '
+SELECT * FROM #tmpRowSize ORDER BY RowSize DESC
