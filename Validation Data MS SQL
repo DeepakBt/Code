@@ -1,0 +1,339 @@
+USE [KARVY]
+GO
+/****** Object:  StoredProcedure [dbo].[USP_VALIDATE_CALL_FATCA_APPPROFILE]    Script Date: 08-11-2019 10:24:32 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/******************************************************************
+	ObjectName	:	USP_VALIDATE_CALL_FATCA_APPPROFILE
+	Author		:	Deepak
+	Date		:	08 Nov 2019
+	Purpose		:	To Validate Call_Fatca_appprofile
+	Example		:	EXEC [dbo].[USP_VALIDATE_CALL_FATCA_APPPROFILE]
+******************************************************************/
+CREATE PROCEDURE [dbo].[USP_VALIDATE_CALL_FATCA_APPPROFILE]
+AS  
+BEGIN TRY
+IF OBJECT_ID('tempdb..#TempError') IS NOT NULL DROP TABLE #TempError
+;WITH BasicError
+	(
+		Fund,folio,addType,dt,countryBirthm,pan,city,cityBirth,taxresident,UBO_Occupation_Type,
+		FundErr,folioErr,addTypeErr,dtErr,countryBirthmErr,panErr,cityErr,cityBirthErr,taxresidentErr,UBO_Occupation_TypeErr
+	)AS
+	(
+		SELECT Fund,folio,addType,dt,countryBirthm,pan,city,cityBirth,taxresident,UBO_Occupation_Type,
+		CASE WHEN LEN(ISNULL(Fund,''))<=0 THEN 'Fund is mandatory' ELSE '' END AS 'FundErr',
+		CASE WHEN ISNULL(folio,0)<=0 THEN 'folio is and numeric and mandatory' ELSE '' END AS 'folioErr',
+		CASE WHEN LEN(ISNULL(addType,''))<=0 THEN 'addType is mandatory' ELSE '' END AS 'addTypeErr',
+		CASE WHEN LEN(ISNULL(dt,''))<=8 THEN 'dt is mandatory' ELSE '' END AS 'dtErr',
+		CASE WHEN LEN(ISNULL(countryBirthm,''))<=0 THEN 'countryBirthm is mandatory' ELSE '' END AS 'countryBirthmErr',
+		CASE WHEN LEN(RTRIM(LTRIM(ISNULL(pan,''))))<>10 THEN 'pan should be valid and mandatory' ELSE '' END AS 'panErr',
+		CASE WHEN LEN(ISNULL(city,''))<=0 THEN 'city is mandatory' ELSE '' END AS 'cityErr',
+		CASE WHEN LEN(ISNULL(cityBirth,''))<=0 THEN 'cityBirth is mandatory' ELSE '' END AS 'cityBirthErr',
+		CASE WHEN LEN(ISNULL(taxresident,''))<=0 THEN 'taxresident is mandatory' ELSE '' END AS 'taxresidentErr',
+		CASE WHEN LEN(ISNULL(UBO_Occupation_Type,''))<=0 THEN 'UBO_Occupation_Type is mandatory' ELSE '' END AS 'UBO_Occupation_TypeErr'
+		FROM CALL_FATCA_APPPROFILE WITH(NOLOCK)
+	)
+	SELECT Fund,folio,addType,dt,countryBirthm,pan,city,cityBirth,taxresident,UBO_Occupation_Type,
+	ErrorMessage=ISNULL(FundErr,'')+' '+ISNULL(folioErr,'')+' '+ISNULL(addTypeErr,'')+' '+ISNULL(dtErr,'')+' '+ISNULL(countryBirthmErr,'')+' '+
+	ISNULL(panErr,'')+' '+ISNULL(cityErr,'')+' '+ISNULL(cityBirthErr,'')+' '+ISNULL(taxresidentErr,'')+' '+ISNULL(UBO_Occupation_TypeErr,'') 
+	INTO #TempError FROM BasicError
+
+	SELECT * FROM #TempError WHERE ErrorMessage<>''
+END TRY  
+BEGIN CATCH  
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
+GO
+/****** Object:  StoredProcedure [dbo].[USP_VALIDATE_RPL_BANKDETAILS_NEW]    Script Date: 08-11-2019 10:24:32 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/******************************************************************
+	ObjectName	:	USP_VALIDATE_RPL_BANKDETAILS_NEW
+	Author		:	Deepak
+	Date		:	07 Nov 2019
+	Purpose		:	To Validate Rpl_BankDetails_New
+	Example		:	EXEC [dbo].[USP_VALIDATE_RPL_BANKDETAILS_NEW]
+******************************************************************/
+CREATE PROCEDURE [dbo].[USP_VALIDATE_RPL_BANKDETAILS_NEW]  
+AS  
+BEGIN TRY
+IF OBJECT_ID('tempdb..#TempError') IS NOT NULL DROP TABLE #TempError
+;WITH BasicError
+	(
+		bd_refno,bd_fund,bd_foliono,bd_scheme,bd_plan,bd_bankname,bd_bankacno,bd_bankactype,bd_bankadd1,bd_bankadd2,bd_bankcity,bd_bankpin,bd_bankstate,bd_ecsno,bd_ifsccode,
+		bd_fundErr,bd_folionoErr,bd_schemeErr,bd_planErr,bd_banknameErr,bd_bankacnoErr,bd_bankactypeErr,bd_bankadd1Err,bd_bankadd2Err,bd_bankcityErr,bd_bankpinErr,
+		bd_bankstateErr,bd_ecsnoErr,bd_ifsccodeErr
+	)AS
+	(
+		SELECT bd_refno,bd_fund,bd_foliono,bd_scheme,bd_plan,bd_bankname,bd_bankacno,bd_bankactype,bd_bankadd1,bd_bankadd2,bd_bankcity,
+		bd_bankpin,bd_bankstate,bd_ecsno,bd_ifsccode,
+		CASE WHEN LEN(ISNULL(bd_fund,''))<=0 THEN 'bd_fund is mandatory' ELSE '' END AS 'bd_fundErr',
+		CASE WHEN ISNULL(bd_foliono,0)<=0 THEN 'bd_foliono is mandatory' ELSE '' END AS 'bd_folionoErr',
+		CASE WHEN LEN(ISNULL(bd_scheme,''))<=0 THEN 'bd_scheme is mandatory' ELSE '' END AS 'bd_schemeErr',
+		CASE WHEN LEN(ISNULL(bd_plan,''))<=0 THEN 'bd_plan is mandatory' ELSE '' END AS 'bd_planErr',
+		CASE WHEN LEN(ISNULL(bd_bankname,''))<=0 THEN 'bd_bankname is mandatory' ELSE '' END AS 'bd_banknameErr',
+		CASE WHEN LEN(ISNULL(bd_bankacno,''))<=0 THEN 'bd_bankacno is mandatory' ELSE '' END AS 'bd_bankacnoErr',
+		CASE WHEN LEN(ISNULL(bd_bankactype,''))<=0 THEN 'bd_bankactype is mandatory' ELSE '' END AS 'bd_bankactypeErr',
+		CASE WHEN LEN(ISNULL(bd_bankadd1,''))<=0 THEN 'bd_bankadd1 is mandatory' ELSE '' END AS 'bd_bankadd1Err',
+		CASE WHEN LEN(ISNULL(bd_bankadd2,''))<=0 THEN 'bd_bankadd2 is mandatory' ELSE '' END AS 'bd_bankadd2Err',
+		CASE WHEN LEN(ISNULL(bd_bankcity,''))<=0 THEN 'bd_bankcity is mandatory' ELSE '' END AS 'bd_bankcityErr',
+		CASE WHEN ISNULL(bd_bankpin,0)=0 THEN 'bd_bankpin is mandatory' ELSE '' END AS 'bd_bankpinErr',
+		CASE WHEN LEN(ISNULL(bd_bankstate,''))<=0 THEN 'bd_bankstate is mandatory' ELSE '' END AS 'bd_bankstateErr',
+		CASE WHEN LEN(ISNULL(bd_ecsno,''))<=0 THEN 'bd_ecsno is mandatory' ELSE '' END AS 'bd_ecsnoErr',
+		CASE WHEN LEN(ISNULL(bd_ifsccode,''))<=0 THEN 'bd_ifsccode is mandatory' ELSE '' END AS 'bd_ifsccodeErr'
+		FROM Rpl_BankDetails_New WITH(NOLOCK)
+	)
+	SELECT bd_refno,bd_fund,bd_foliono,bd_scheme,bd_plan,bd_bankname,bd_bankacno,bd_bankactype,bd_bankadd1,bd_bankadd2,bd_bankcity,bd_bankpin,bd_bankstate,bd_ecsno,bd_ifsccode,
+	ErrorMessage=ISNULL(bd_fundErr,'')+' '+ISNULL(bd_folionoErr,'')+' '+ISNULL(bd_schemeErr,'')+' '+ISNULL(bd_planErr,'')+' '+ISNULL(bd_banknameErr,'')+' '+
+	ISNULL(bd_bankacnoErr,'')+' '+ISNULL(bd_bankactypeErr,'')+' '+ISNULL(bd_bankadd1Err,'')+' '+ISNULL(bd_bankadd2Err,'')+' '+ISNULL(bd_bankcityErr,'')+' '+ 
+	ISNULL(bd_bankpinErr,'')+' '+ISNULL(bd_bankstateErr,'')+' '+ISNULL(bd_ecsnoErr,'')+' '+ISNULL(bd_ifsccodeErr,'') INTO #TempError FROM BasicError
+
+	SELECT * FROM #TempError WHERE ErrorMessage<>''
+END TRY  
+BEGIN CATCH  
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
+
+GO
+/****** Object:  StoredProcedure [dbo].[USP_VALIDATE_RPL_CONTACTMASTER_NEW]    Script Date: 08-11-2019 10:24:32 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/******************************************************************
+	ObjectName	:	USP_VALIDATE_RPL_INVMASTER_NEW_DATE
+	Author		:	Deepak
+	Date		:	07 Nov 2019
+	Purpose		:	To Validate Rpl_ContactMaster_New
+	Example		:	EXEC [dbo].[USP_VALIDATE_RPL_CONTACTMASTER_NEW]
+******************************************************************/
+CREATE PROCEDURE [dbo].[USP_VALIDATE_RPL_CONTACTMASTER_NEW]  
+AS  
+BEGIN TRY
+IF OBJECT_ID('tempdb..#TempError') IS NOT NULL DROP TABLE #TempError
+;WITH BasicError
+	(
+		cm_refno,cm_fund,cm_acno,cm_addtype,cm_add1,cm_city,cm_pin,cm_state,cm_country,cm_mobile,cm_email,
+		cm_fundErr,cm_acnoErr,cm_addtypeErr,cm_add1Err,cm_cityErr,cm_pinErr,cm_stateErr,cm_countryErr,cm_mobileErr,cm_emailErr
+
+	)AS
+	(
+		SELECT cm_refno,cm_fund,cm_acno,cm_addtype,cm_add1,cm_city,cm_pin,cm_state,cm_country,cm_mobile,cm_email,
+		CASE WHEN LEN(ISNULL(cm_fund,''))<=0 THEN 'cm_fund is mandatory' ELSE '' END AS 'cm_fundErr',
+		CASE WHEN cm_acno<=0 THEN 'cm_acno is mandatory' ELSE '' END AS 'cm_acnoErr',
+		CASE WHEN LEN(ISNULL(cm_addtype,''))<=0 THEN 'cm_addtype is mandatory' ELSE '' END AS 'cm_addtypeErr',
+		CASE WHEN LEN(ISNULL(cm_add1,''))<=0 THEN 'cm_add1 is mandatory' ELSE '' END AS 'cm_add1Err',
+		CASE WHEN LEN(ISNULL(cm_city,''))<=0 THEN 'cm_city is mandatory' ELSE '' END AS 'cm_cityErr',
+		CASE WHEN ISNULL(cm_pin,0)=0 THEN 'cm_pin is mandatory' ELSE '' END AS 'cm_pinErr',
+		CASE WHEN LEN(ISNULL(cm_state,''))<=0 THEN 'cm_state is mandatory' ELSE '' END AS 'cm_stateErr',
+		CASE WHEN LEN(ISNULL(cm_country,''))<=0 THEN 'cm_country is mandatory' ELSE '' END AS 'cm_countryErr',
+		CASE WHEN LEN(ISNULL(cm_mobile,''))<=7 THEN 'cm_mobile is mandatory' ELSE '' END AS 'cm_mobileErr',
+		CASE WHEN LEN(ISNULL(cm_email,''))<=10 THEN 'cm_email is mandatory' ELSE '' END AS 'cm_emailErr'
+		FROM Rpl_ContactMaster_New WITH(NOLOCK)
+	)
+	SELECT cm_refno,cm_fund,cm_acno,cm_addtype,cm_add1,cm_city,cm_pin,cm_state,cm_country,cm_mobile,cm_email,
+	ErrorMessage=ISNULL(cm_fundErr,'')+' '+ISNULL(cm_acnoErr,'')+' '+ISNULL(cm_addtypeErr,'')+' '+ISNULL(cm_add1Err,'')+' '+ISNULL(cm_cityErr,'')+' '+
+	ISNULL(cm_pinErr,'')+' '+ISNULL(cm_stateErr,'')+' '+ISNULL(cm_countryErr,'')+' '+ISNULL(cm_mobileErr,'')+' '+ISNULL(cm_emailErr,'')
+	INTO #TempError FROM BasicError
+
+	SELECT * FROM #TempError WHERE ErrorMessage<>''
+END TRY  
+BEGIN CATCH  
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
+
+GO
+/****** Object:  StoredProcedure [dbo].[USP_VALIDATE_RPL_INVMASTER_NEW_DATE]    Script Date: 08-11-2019 10:24:32 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/******************************************************************
+	ObjectName	:	USP_VALIDATE_RPL_INVMASTER_NEW_DATE
+	Author		:	Deepak
+	Date		:	07 Nov 2019
+	Purpose		:	To Validate Rpl_InvMaster_New_date
+	Example		:	EXEC [dbo].[USP_VALIDATE_RPL_INVMASTER_NEW_DATE]
+******************************************************************/
+CREATE PROCEDURE [dbo].[USP_VALIDATE_RPL_INVMASTER_NEW_DATE]  
+AS  
+BEGIN TRY
+IF OBJECT_ID('tempdb..#TempError') IS NOT NULL DROP TABLE #TempError
+;WITH BasicError
+	(
+		im_refno,im_acno,im_fund,im_name1,im_moh,im_status,im_pangir1,im_pangir2,im_pangir3,im_dob1,im_kycomplaint1,
+		im_acnoErr,im_fundErr,im_name1Err,im_statusErr,im_pangir1Err,im_pangir2Err,im_pangir3Err,im_dob1Err,im_kycomplaint1Err
+	)AS
+	(
+		SELECT im_refno,im_acno,im_fund,im_name1,im_moh,im_status,im_pangir1,im_pangir2,im_pangir3,im_dob1,im_kycomplaint1,
+		CASE WHEN im_acno<=0 THEN 'im_acno should be numeric and mandatory' ELSE '' END AS 'im_acnoErr',
+		CASE WHEN LEN(ISNULL(im_fund,''))<=0 THEN 'im_fund is mandatory' ELSE '' END AS 'im_fundErr',
+		CASE WHEN LEN(ISNULL(im_name1,''))<=0 THEN 'im_name1 is mandatory' ELSE '' END AS 'im_name1Err',
+		CASE WHEN LEN(ISNULL(im_status,''))<=0 AND LEN(ISNULL(im_status,''))>1 THEN 'im_status is mandatory with only single char' ELSE '' END AS 'im_statusErr',
+		CASE WHEN LEN(RTRIM(LTRIM(ISNULL(im_pangir1,''))))<>10 THEN 'im_pangir1 is mandatory with 10 char' ELSE '' END AS 'im_pangir1Err',
+		CASE WHEN LEN(RTRIM(LTRIM(ISNULL(im_pangir2,'')))) NOT IN (0,10) THEN 'im_pangir2 is mandatory with 10 char' ELSE '' END AS 'im_pangir2Err',
+		CASE WHEN LEN(RTRIM(LTRIM(ISNULL(im_pangir3,'')))) NOT IN (0,10) THEN 'im_pangir3 is mandatory with 10 char' ELSE '' END AS 'im_pangir3Err',
+		CASE WHEN LEN(ISNULL(im_dob1,''))=0 THEN 'im_dob1 is mandatory' ELSE '' END AS 'im_dob1Err',
+		CASE WHEN LEN(ISNULL(im_kycomplaint1,''))=0 THEN 'im_kycomplaint1 is mandatory' ELSE '' END AS 'im_kycomplaint1Err'
+		FROM Rpl_InvMaster_New_date WITH(NOLOCK)
+	),
+	MasterMohIdError
+		(
+			im_refno,im_mohErr
+		)AS
+		(
+			SELECT BE.im_refno,'im_moh is not present in Rpl_ModeOfHolding_New' AS 'im_mohErr' 
+			FROM BasicError BE LEFT OUTER JOIN Rpl_ModeOfHolding_New MH WITH(NOLOCK) ON BE.im_moh=MH.moh_code
+			WHERE MH.moh_code IS NULL
+		)
+	SELECT BE.im_refno,BE.im_acno,BE.im_fund,BE.im_name1,BE.im_moh,BE.im_status,BE.im_pangir1,BE.im_pangir2,BE.im_pangir3,BE.im_dob1,BE.im_kycomplaint1,
+	ErrorMessage=ISNULL(BE.im_acnoErr,'')+' '+ISNULL(BE.im_fundErr,'')+' '+ISNULL(BE.im_name1Err,'')+' '+ISNULL(BE.im_statusErr,'')+' '+ISNULL(BE.im_pangir1Err,'')+' '+
+	ISNULL(BE.im_pangir2Err,'')+' '+ISNULL(BE.im_pangir3Err,'')+' '+ISNULL(BE.im_dob1Err,'')+' '+ISNULL(BE.im_kycomplaint1Err,'')+' '+ISNULL(MHE.im_mohErr,'')
+	INTO #TempError FROM BasicError BE 
+	LEFT OUTER JOIN MasterMohIdError MHE ON BE.im_refno=MHE.im_refno
+		
+	SELECT * FROM #TempError WHERE ErrorMessage<>''
+END TRY  
+BEGIN CATCH  
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
+
+GO
+/****** Object:  StoredProcedure [dbo].[USP_VALIDATE_RPL_TRANSDET_NEW_DATE]    Script Date: 08-11-2019 10:24:32 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+/******************************************************************
+	ObjectName	:	USP_VALIDATE_RPL_TRANSDET_NEW_DATE
+	Author		:	Deepak
+	Date		:	06 Nov 2019
+	Purpose		:	To Validate Rpl_Transdet_New_Date
+	Example		:	EXEC [dbo].[USP_VALIDATE_RPL_TRANSDET_NEW_DATE]
+******************************************************************/
+CREATE PROCEDURE [dbo].[USP_VALIDATE_RPL_TRANSDET_NEW_DATE]  
+AS  
+BEGIN TRY
+IF OBJECT_ID('tempdb..#TempError') IS NOT NULL DROP TABLE #TempError
+;WITH BasicError
+	(
+		td_refno,td_fund,td_scheme,td_plan,td_acno,td_branch,td_recdt,td_trdt,td_processdt,td_batchclosedt,
+		td_amt,td_units,td_nav,td_pop,td_trtype,td_inwardno,td_purred,td_ihno,
+		td_fundErr,td_schemeErr,td_planErr,td_acnoErr,td_recdtErr,td_trdtErr,
+		td_processdtErr,td_batchclosedtErr,td_amtErr,td_unitsErr,td_navErr,td_popErr,td_inwardnoErr,td_purredErr,td_ihnoErr
+	)AS
+	(
+		SELECT td_refno,td_fund,td_scheme,td_plan,td_acno,td_branch,td_recdt,td_trdt,td_processdt,td_batchclosedt,td_amt,td_units,td_nav,td_pop,td_trtype,
+		td_inwardno,td_purred,td_ihno,
+		CASE WHEN td_fund<=0 THEN 'td_fund should be numeric and mandatory' ELSE '' END AS 'td_fundErr',
+		CASE WHEN LEN(td_scheme)<>2 THEN 'td_scheme should be 2 char' ELSE '' END AS 'td_schemeErr',
+		CASE WHEN LEN(td_plan)<>2 THEN 'td_plan should be 2 char' ELSE '' END AS 'td_planErr',
+		CASE WHEN td_acno<=0 THEN 'td_acno should be numeric and mandatory' ELSE '' END AS 'td_acnoErr',
+		CASE WHEN ISDATE(td_recdt)=0 THEN 'td_recdt is mandatory date' ELSE '' END AS 'td_recdtErr',
+		CASE WHEN ISDATE(td_trdt)=0 THEN 'td_trdt is mandatory date' ELSE '' END AS 'td_trdtErr',
+		CASE WHEN ISDATE(td_processdt)=0 THEN 'td_processdt is mandatory date' ELSE '' END AS 'td_processdtErr',
+		CASE WHEN ISDATE(td_batchclosedt)=0 THEN 'td_batchclosedt is mandatory date' ELSE '' END AS 'td_batchclosedtErr',
+		CASE WHEN td_amt<=0 THEN 'td_amt should be numeric and mandatory' ELSE '' END AS 'td_amtErr',
+		CASE WHEN td_units<=0 THEN 'td_units should be numeric and mandatory' ELSE '' END AS 'td_unitsErr',
+		CASE WHEN td_nav<=0 THEN 'td_nav should be numeric and mandatory' ELSE '' END AS 'td_navErr',
+		CASE WHEN td_pop<=0 THEN 'td_pop should be numeric and mandatory' ELSE '' END AS 'td_popErr',
+		CASE WHEN td_inwardno<=0 THEN 'td_inwardno is mandatory numeric and mandatory' ELSE '' END AS 'td_inwardnoErr',
+		CASE WHEN LEN(ISNULL(td_purred,''))=0 THEN 'td_purred is mandatory' ELSE '' END AS 'td_purredErr',
+		CASE WHEN td_ihno<=0 THEN 'td_ihno is numeric and mandatory' ELSE '' END AS 'td_ihnoErr'
+		FROM Rpl_TransDet_New_Date WITH(NOLOCK) 
+	),
+	MasterIdBranchError
+		(
+			td_refno,td_branch,td_branchMErr
+		)AS
+		(
+			SELECT BE.td_refno,BE.td_branch,'td_branch not present in Rpl_LocationMaster_new' AS 'td_branchMErr' 
+			FROM BasicError BE LEFT OUTER JOIN Rpl_LocationMaster_new LM ON BE.td_branch=LM.BranchCode 
+			WHERE LM.BranchCode IS NULL
+		),
+		MasterIdtdtrtypeError
+			(
+				td_refno,td_trtype,td_trtypeMErr
+			)AS
+			(
+				SELECT BE.td_refno,BE.td_trtype,'td_trtype not present in Rpl_TranTypeMaster_New' AS 'td_trtypeMErr' 
+				FROM BasicError BE LEFT OUTER JOIN Rpl_TranTypeMaster_New TR ON BE.td_trtype=TR.tm_code 
+				WHERE TR.tm_code  IS NULL
+			)
+		SELECT BE.td_refno,BE.td_fund,BE.td_scheme,BE.td_plan,BE.td_acno,BE.td_branch,BE.td_recdt,BE.td_trdt,BE.td_processdt,BE.td_batchclosedt,
+		BE.td_amt,BE.td_units,BE.td_nav,BE.td_pop,BE.td_trtype,BE.td_inwardno,BE.td_purred,BE.td_ihno,
+		ErrorMessage=ISNULL(BE.td_fundErr,'')+' '+ISNULL(BE.td_schemeErr,'')+' '+ISNULL(BE.td_planErr,'')+' '+ISNULL(BE.td_acnoErr,'')+' '+
+		ISNULL(BE.td_recdtErr,'')+' '+ISNULL(BE.td_trdtErr,'')+' '+ISNULL(BE.td_processdtErr,'')+' '+ISNULL(BE.td_batchclosedtErr,'')+' '+ISNULL(BE.td_amtErr,'')+' '+
+		ISNULL(BE.td_unitsErr,'')+' '+ISNULL(BE.td_navErr,'')+' '+ISNULL(BE.td_popErr,'')+' '+ISNULL(BE.td_inwardnoErr,'')+' '+ISNULL(BE.td_purredErr,'')+' '+
+		ISNULL(BE.td_ihnoErr,'')+' '+ISNULL(MBE.td_branchMErr,'')+' '+ISNULL(TTE.td_trtypeMErr,'')
+		INTO #TempError FROM BasicError BE 
+		LEFT OUTER JOIN MasterIdBranchError MBE ON BE.td_refno=MBE.td_refno
+		LEFT OUTER JOIN MasterIdtdtrtypeError TTE ON BE.td_refno=TTE.td_refno
+
+		SELECT * FROM #TempError WHERE ErrorMessage<>''
+END TRY  
+BEGIN CATCH  
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
+
+GO
