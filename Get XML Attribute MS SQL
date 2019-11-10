@@ -1,3 +1,20 @@
+DECLARE @XMLMetaData AS XML,
+			@TabeName AS VARCHAR(200)
+
+			SET @XMLMetaData='<MetaData>
+								<ListColumn>
+									<Column Type="VARCHAR(10)">PAN_NO</Column>
+									<Column Type="float">Curret_Value</Column>
+								</ListColumn>
+							 </MetaData>'
+	SELECT x.y.value('.','VARCHAR(100)') AS ColumnsName,
+		   x.y.value('@Type','VARCHAR(100)') AS DataType
+    FROM @XMLMetaData.nodes('/MetaData/ListColumn/Column') AS x ( y )
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------
 SELECT @Rating=OT.T.value('@RatingValue', 'int') 
 FROM TagMaster  cross apply TagMaster.OpenTags.nodes('//otag//tags//Rating') AS OT(T)
 Where OT.T.value('.','nvarchar(100)')=@FeedBackVal AND Inst_Id=Inst_Id AND TagType='Ticket Feedback'
