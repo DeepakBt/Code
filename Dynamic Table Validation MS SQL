@@ -1,0 +1,111 @@
+ALTER PROC [dbo].[USP_TABLE_DYNAMIC_VALIDATION]
+/************************************************************************                                                                              
+ '     Object Name   : USP_TABLE_DYNAMIC_VALIDATION
+ '     Purpose       : 
+ '     Author        : Deepak
+ '     Creation Date : 10 Nov 2019
+ '	   Test          : EXEC [dbo].[USP_TABLE_DYNAMIC_VALIDATION] '<MetaData>
+																	<ListColumn>
+																		<Column Type="VARCHAR(20)">Name</Column>
+																		<Column Type="float">Current_Value</Column>
+																		<Column Type="DateTime">ActivationDate</Column>
+																	</ListColumn>
+																  </MetaData>','PMSData'
+************************************************************************/
+(	
+	 @XMLMetaData AS XML,
+	 @TabeName AS VARCHAR(200)
+)
+AS  
+BEGIN TRY 
+	IF OBJECT_ID('tempdb..#TempMeta') IS NOT NULL DROP TABLE #TempMeta
+	SELECT IDENTITY(INT) AS Id
+		, x.y.value('.','VARCHAR(100)') AS ColumnsName
+		, x.y.value('.','VARCHAR(100)')+'Err' AS ColumnsNameErr
+		, x.y.value('@Type','VARCHAR(100)') AS DataType
+	INTO #TempMeta
+    FROM @XMLMetaData.nodes('/MetaData/ListColumn/Column') AS x (y)
+
+	DECLARE @Query AS VARCHAR(MAX)
+	DECLARE @Columns VARCHAR(MAX)
+			, @ColumnsErr VARCHAR(MAX)
+			, @AllColumns AS VARCHAR(MAX)
+			, @ErrorColumns AS VARCHAR(MAX)
+	SET @Columns = ''
+	SET @ColumnsErr=''
+
+	SELECT @Columns = @Columns + ColumnsName + ', ' FROM #TempMeta
+	SELECT @ColumnsErr = @ColumnsErr + ColumnsNameErr + ', ' FROM #TempMeta
+	SELECT @AllColumns=SUBSTRING(@Columns+@ColumnsErr,1,LEN(@Columns+@ColumnsErr)-1) 
+
+	ALTER TABLE #TempMeta 
+	ADD TypeLen VARCHAR(10)
+	ALTER TABLE #TempMeta 
+	ADD [Type] VARCHAR(20)
+	UPDATE #TempMeta SET TypeLen=SUBSTRING(DataType,CHARINDEX('(',DataType)+1,(LEN(DataType)-1)-CHARINDEX('(',DataType))
+	WHERE DataType Like '%(%)%'
+	UPDATE #TempMeta SET [Type] = SUBSTRING(DataType,1,CHARINDEX('(',DataType)-1)
+	WHERE DataType Like '%(%)%'
+	UPDATE #TempMeta SET [Type] = DataType
+	WHERE DataType NOT LIKE '%(%)%'
+
+	DECLARE @ValQuery AS VARCHAR(MAX),@Count SMALLINT,@MaxCount SMALLINT,@ValidationQuery VARCHAR(MAX)
+	SELECT @MaxCount=MAX(Id) FROM #TempMeta
+
+	SET @Count=1
+	DECLARE @ColumnErrName AS VARCHAR(MAX),@Type AS VARCHAR(MAX),@ColumnsName VARCHAR(MAX),@Len VARCHAR(MAX),@NoLenQuery VARCHAR(MAX),@LenQuery VARCHAR(MAX),@DateQuery VARCHAR(MAX)
+	WHILE @MaxCount>=@Count
+	BEGIN
+		SELECT @ColumnErrName=ColumnsNameErr,@Type=[Type],@ColumnsName=ColumnsName,@Len=TypeLen FROM #TempMeta WHERE Id=@Count
+		
+		IF @Type IN ('FLOAT','INT','SMALLINT','TINYINT','NUMERIC','DECIMAL')
+		BEGIN
+			SELECT @NoLenQuery='CASE WHEN ISNULL('+@ColumnsName+',0)<=0 THEN '''+@ColumnsName+' is mandatory of type '+@Type+''' ELSE '''' END AS '''+@ColumnErrName+''''+','
+		END
+		ELSE IF @Type IN ('VARCHAR','CHAR','NVARCHAR')
+		BEGIN
+			SELECT @LenQuery='CASE WHEN LEN(ISNULL('+@ColumnsName+',''''))<=0 THEN '''+@ColumnsName+' is Mandatory With Length '+@Len+' of type '+@Type+''' ELSE '''' END AS '''+@ColumnErrName+''''+','
+		END
+		ELSE IF @Type IN ('DATETIME','DATE')
+		BEGIN
+			SELECT @DateQuery='CASE WHEN ISDATE('+@ColumnsName+')=0 THEN '''+@ColumnsName+'is mandatory of type '+@Type+''' ELSE '''' END AS '''+@ColumnErrName+''''+','
+		END
+		SET @ValQuery=ISNULL(@ValQuery,'')+' '+ISNULL(@NoLenQuery,'')+' '+ISNULL(@LenQuery,'')+' '+ISNULL(@DateQuery,'')
+		SET @NoLenQuery=''
+		SET @LenQuery=''
+		SET @ColumnErrName=''
+		SET @Type=''
+		SET @ColumnsName=''
+		SET @Len=''
+		SET @Count=@Count+1
+	END
+	SELECT @ValidationQuery=SUBSTRING(@ValQuery,1,LEN(@ValQuery)-1)
+	SELECT @ErrorColumns = ISNULL(@ErrorColumns,'') + 'ISNULL('+ISNULL(ColumnsNameErr,'')+','''')' + '+'' ''+' FROM #TempMeta  
+	SET @Query='IF OBJECT_ID(''tempdb..#TempError'') IS NOT NULL DROP TABLE #TempError
+				;WITH BasicError
+				(
+					'+@AllColumns+'
+				)AS
+				(
+					SELECT '+@Columns+' '+@ValidationQuery+'
+					FROM '+@TabeName+' WITH(NOLOCK)
+				)
+				SELECT '+SUBSTRING(@Columns,1,LEN(@Columns)-1)+' ,ErrorMessage='+SUBSTRING(@ErrorColumns,1,LEN(@ErrorColumns)-5)+' 
+				INTO #TempError FROM BasicError
+				SELECT * FROM #TempError WHERE ErrorMessage<>'''''
+	EXEC(@Query)
+END TRY
+BEGIN CATCH
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
