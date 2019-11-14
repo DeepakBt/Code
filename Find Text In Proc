@@ -1,0 +1,11 @@
+--Option 1
+SELECT DISTINCT so.name
+FROM syscomments sc
+INNER JOIN sysobjects so ON sc.id=so.id
+WHERE sc.TEXT LIKE '%Employee%'
+GO
+--Option 2
+SELECT DISTINCT o.name ,o.xtype
+FROM syscomments c
+INNER JOIN sysobjects o ON c.id=o.id
+WHERE c.TEXT LIKE '%Employee%'
