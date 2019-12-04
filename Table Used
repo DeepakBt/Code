@@ -1,0 +1,28 @@
+IF OBJECT_ID('tempdb..#TempTableUtilization') IS NOT NULL DROP TABLE #TempTableUtilization
+CREATE TABLE #TempTableUtilization
+(
+	TableName VARCHAR(500),
+	ObjectName VARCHAR(500),
+	ObjectType VARCHAR(500)
+)
+
+IF OBJECT_ID('tempdb..#TempKarvyTable') IS NOT NULL DROP TABLE #TempKarvyTable
+SELECT IDENTITY(INT) AS 'Id',* INTO #TempKarvyTable FROM KARVY.SYS.TABLES
+DECLARE @Count INT =1,@MaxCount INT,@TableName VARCHAR(500)
+SELECT @MaxCount=COUNT(1) FROM #TempKarvyTable
+
+WHILE @Count<=@MaxCount
+BEGIN
+	SELECT @TableName=[name] FROM #TempKarvyTable WHERE Id=@Count
+	INSERT INTO #TempTableUtilization(TableName,ObjectName,ObjectType)
+	SELECT DISTINCT @TableName,o.name ,o.xtype FROM syscomments c INNER JOIN sysobjects o ON c.id=o.id WHERE c.TEXT LIKE '%'+@TableName+'%'
+	SET @Count=@Count+1
+END
+
+
+
+--SELECT * FROM #TempTableUtilization
+
+
+SELECT KT.[name] AS 'TableName',TU.ObjectName,TU.ObjectType,CASE WHEN TU.ObjectName IS NULL THEN 'No' ELSE 'Yes' END AS 'IsTableUsed' 
+FROM #TempKarvyTable KT LEFT OUTER JOIN #TempTableUtilization TU ON KT.[name]=TU.TableName
