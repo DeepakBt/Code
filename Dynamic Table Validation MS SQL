@@ -58,7 +58,7 @@ BEGIN TRY
 	BEGIN
 		SELECT @ColumnErrName=ColumnsNameErr,@Type=[Type],@ColumnsName=ColumnsName,@Len=TypeLen FROM #TempMeta WHERE Id=@Count
 		
-		IF @Type IN ('FLOAT','INT','SMALLINT','TINYINT','NUMERIC','DECIMAL')
+		IF @Type IN ('FLOAT','INT','SMALLINT','TINYINT','NUMERIC','DECIMAL','BIT')
 		BEGIN
 			SELECT @NoLenQuery='CASE WHEN ISNULL('+@ColumnsName+',0)<=0 THEN '''+@ColumnsName+' is mandatory of type '+@Type+''' ELSE '''' END AS '''+@ColumnErrName+''''+','
 		END
@@ -75,6 +75,7 @@ BEGIN TRY
 		SET @LenQuery=''
 		SET @ColumnErrName=''
 		SET @Type=''
+		SET @DateQuery=''
 		SET @ColumnsName=''
 		SET @Len=''
 		SET @Count=@Count+1
