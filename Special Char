@@ -1,0 +1,63 @@
+public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            var Reqdata=context.ActionArguments.ToList();
+            string ReqJson = JsonConvert.SerializeObject(context.ActionArguments);
+            if(Utilities.ContainsXHTML(ReqJson))
+            {
+                throw new System.Exception("Having Some XSS scripts");
+            }
+            if(Utilities.CheckSpecialChar(ReqJson))
+            {
+                throw new System.Exception("Having Some Special Char");
+            }
+         }
+         
+    ------------------------------------------------------------------------------------------------------------------------------------
+    
+    public static bool ContainsXHTML(string input)
+        {
+            try
+            {
+                if (input == "" || input == null)
+                {
+                    return false;
+                }
+                XElement x = XElement.Parse("<wrapper>" + input + "</wrapper>");
+                return !(x.DescendantNodes().Count() == 1 && x.DescendantNodes().First().NodeType == XmlNodeType.Text);
+            }
+            catch (XmlException ex)
+            {
+                var regexItem = new Regex(@"^[a-zA-Z0-9 ._%$#/&@!*,;-]*$");
+                if (regexItem.IsMatch(input))
+                {
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+        }
+        public static bool CheckSpecialChar(string input)
+        {
+            try
+            {
+                var regexItem = new Regex(@"^[a-zA-Z0-9 ._%$#/&@!*,;-]*$");
+                if (input == "" || input == null)
+                {
+                    return false;
+                }
+                if (regexItem.IsMatch(input))
+                {
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                return true;
+            }
+        }
