@@ -1,0 +1,6 @@
+SELECT t1.Table_Name, t1.Column_Name
+FROM INFORMATION_SCHEMA.Columns t1
+INNER JOIN INFORMATION_SCHEMA.Columns t2 ON (t1.Column_Name = t2.Column_Name)
+WHERE t1.Table_Name = 'Table1'
+AND  t2.Table_Name = 'Table2'
+AND ISNULL(t1.Character_maximum_length, 0) < ISNULL(t2.Character_maximum_length, 0)
