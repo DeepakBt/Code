@@ -1,0 +1,27 @@
+CREATE TABLE dirList (
+  id int identity(1,1),
+  line nvarchar(1000)
+)
+GO;
+
+INSERT INTO dirList (line) EXEC xp_cmdshell 'dir C:\PathToMyPhotos'
+
+SELECT * FROM dirList;
+WITH CTE AS (
+  SELECT
+    id,
+    SUBSTRING(line,1,17) [date],
+    SUBSTRING(line,18,19) sizeordir,
+    SUBSTRING(line,37,100) name
+  FROM dirList
+  WHERE id > (
+    SELECT MIN(id) FROM dirList WHERE line LIKE '%<DIR>%..%'
+  ) AND id < (SELECT MAX(id) - 2 FROM dirList)
+)
+SELECT
+  id,
+  [date],
+  isDirectory = CASE WHEN sizeordir LIKE '%<DIR>%' THEN 1 ELSE 0 END,
+  isFile = CASE WHEN sizeordir LIKE '%<DIR>%' THEN 0 ELSE 1 END,
+  name
+FROM cte
