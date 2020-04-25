@@ -1,0 +1,23 @@
+sp_configure 'show advanced options', 1;  
+GO  
+RECONFIGURE;  
+GO  
+sp_configure 'Ole Automation Procedures', 1;  
+GO  
+RECONFIGURE;  
+GO  
+EXEC sp_configure 'Ole Automation Procedures';  
+
+Declare @Object as Int;
+Declare @ResponseText as Varchar(8000);
+
+Exec sp_OACreate 'MSXML2.XMLHTTP', @Object OUT;
+Exec sp_OAMethod @Object, 'open', NULL, 'get',
+                 'http://localhost:54643/weatherforecast', 
+                 'false'
+Exec sp_OAMethod @Object, 'send'
+Exec sp_OAMethod @Object, 'responseText', @ResponseText OUTPUT
+
+Select @ResponseText
+
+Exec sp_OADestroy @Object
