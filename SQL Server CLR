@@ -1,0 +1,36 @@
+using Microsoft.SqlServer.Server;
+namespace CLRSQL
+{
+    
+    public static class CLRSQL
+    {
+        [SqlFunction]
+        public static string MyUpperClr(string str)
+        {
+            return str.ToUpper();
+        }
+    }
+}
+-------------------------------------------------------------------
+Add Dll From Add assimbly in programmibility from object explorer
+-------------------------------------------------------------------
+sp_configure 'show advanced options', 1
+RECONFIGURE
+GO
+sp_configure 'clr enabled', 1
+RECONFIGURE
+GO
+sp_configure 'show advanced options', 0
+RECONFIGURE
+GO
+
+CREATE FUNCTION [dbo].MyUpperClr
+(
+	@str nvarchar(max)
+) 
+RETURNS nvarchar(max)
+AS
+External name CLRSQL.[CLRSQL.CLRSQL].MyUpperClr
+Go
+
+SELECT dbo.MyUpperClr('Test')
