@@ -24,3 +24,13 @@ Select TOP 1 @TR =pos FROM #Temp Order By pos desc
 SELECT SUBSTRING(@BM,0,@TR) AS One
 UNION
 SELECT SUBSTRING((@BM),@TR+1,LEN(@BM)) AS One
+------------------------------------------------------------
+IF OBJECT_ID('tempdb..#TempKarvyRIACOMMA') IS NOT NULL DROP TABLE #TempKarvyRIACOMMA
+  SELECT  t.client_UCID,STUFF((SELECT ', ' + CAST(trs_riacode AS VARCHAR(MAX)) [text()]
+                     FROM #TempKarvyRIA 
+                      WHERE client_UCID = t.client_UCID
+                     FOR XML PATH(''), TYPE).value('.','NVARCHAR(MAX)'),1,2,' ') [Trs_RiaCode] INTO #TempKarvyRIACOMMA
+              FROM #TempKarvyRIA t
+			  Where ISNULL(trs_riacode,'')<>''
+              GROUP BY client_UCID 
+
