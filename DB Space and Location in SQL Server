@@ -1,0 +1,13 @@
+SELECT
+    [Disk] = LEFT(vs.volume_mount_point,16)
+    ,[DBName] = DB_NAME()
+    ,[FileName] = f.name
+    ,[Size] = ISNULL(CONVERT(decimal(12,2),round(f.size/128.000,2)),0)
+    ,[SpaceUsed] = ISNULL(CONVERT(decimal(12,2),round(fileproperty(f.name,'SpaceUsed')/128.000,2)),0)
+    ,[SpaceFree] = ISNULL(CONVERT(decimal(12,2),round((f.size-fileproperty(f.name,'SpaceUsed'))/128.000,2)),0)
+    ,[DiskFree] = ISNULL(CONVERT(decimal(12,2),vs.available_bytes/1024/1024),0)
+    ,[DiskTotalSize] = ISNULL(CONVERT(decimal(12,2),vs.total_bytes/1024/1024),0)
+
+FROM sys.database_files f
+    CROSS APPLY sys.dm_os_volume_stats(DB_ID(), f.file_id) vs
+ORDER BY f.name
