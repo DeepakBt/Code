@@ -1,0 +1,12 @@
+using System.Globalization;
+
+
+Console.WriteLine("Hello");
+string date="15-07-1990";
+DateTime dt=Convert.ToDateTime(date);
+
+Console.WriteLine(dt.ToString("yyyy-MM-dd"));
+
+DateTime dt2=DateTime.ParseExact("15-07-1990", "dd-MM-yyyy", CultureInfo.InvariantCulture);
+Console.WriteLine(dt2);
+Console.WriteLine(dt2.ToString("yyyy-MM-dd"));
