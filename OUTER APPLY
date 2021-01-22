@@ -1,0 +1,6 @@
+SELECT DISTINCT T.[value] FROM Table1 AS EMP
+		OUTER APPLY
+			(
+				SELECT * FROM [dbo].[fn_split_delimiter](EMP.COde,',')
+			)T
+		WHERE EMP.Pan_No='BHYGT5643U'
