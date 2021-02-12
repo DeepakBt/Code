@@ -1,0 +1,43 @@
+public async Task<DataSet> GetReportData(string MyParam)
+        {
+            try
+            {
+                DataSet ds = new DataSet();
+                using (var connection = new SqlConnection(ConString))
+                {
+                    var storedprocedure = "MyProc";
+                    var param = new DynamicParameters();
+                    param.Add("@Param1", MyParam);
+                    var data = await SqlMapper.ExecuteReaderAsync(connection, storedprocedure, param,
+                        commandType: CommandType.StoredProcedure);
+                    ds = ConvertDataReaderToDataSet(data);
+                }
+                return ds;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        
+        //------------
+        public static DataSet ConvertDataReaderToDataSet(IDataReader data)
+        {
+            try
+            {
+                DataSet ds = new DataSet();
+                int i = 0;
+                while (!data.IsClosed)
+                {
+                    ds.Tables.Add("Table" + (i + 1));
+                    ds.EnforceConstraints = false;
+                    ds.Tables[i].Load(data);
+                    i++;
+                }
+                return ds;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
