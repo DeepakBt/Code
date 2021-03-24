@@ -1,0 +1,249 @@
+CREATE TABLE [dbo].[TBL_RE_ARCHIVE_MST](
+	[ArchiveID] [int] IDENTITY(1,1) NOT NULL,
+	[TableName] [varchar](200) NULL,
+	[ColumnName] [varchar](100) NULL,
+	[IsActive] [bit] NULL,
+	[CreatedOn] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[ArchiveID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+------------------------------------------------------------------------------------------------------------
+
+ALTER PROC [dbo].[USP_RE_CREATE_ARCHIVE_TABLES]
+/************************************************************************                                                                              
+ '     Object Name   : USP_RE_CREATE_ARCHIVE_TABLES
+ '     Purpose       : 
+ '     Author        : Deepak
+ '     Creation Date : 26 Dec 2020
+ '	   Test          : EXEC [dbo].[USP_RE_CREATE_ARCHIVE_TABLES]
+************************************************************************/    
+(
+	@TableName VARCHAR(200),
+	@TableNameArchive VARCHAR(200)
+)
+AS 
+Set nocount on;
+BEGIN TRY 
+	DECLARE @Query VARCHAR(MAX),@IdentityColumn VARCHAR(200),@RowCount BIGINT
+	SET @Query='IF NOT EXISTS(Select 1 FROM sys.tables Where Name='+''''+@TableNameArchive+''''+') 
+				BEGIN
+					SELECT * INTO '+@TableNameArchive+' FROM '+@TableName+' WHERE 1=0
+					ALTER TABLE '+@TableNameArchive+'
+					ADD Archived_Date DateTime Default GetDate()
+				END
+				ELSE
+				BEGIN
+					Select 2 AS Result,'+''''+@TableNameArchive+''+' Already Exist'+''' AS Message
+				END
+			   '
+	  DECLARE @Message TABLE
+	  (
+		Result INT,
+		[Message] VARCHAR(200)
+	  )
+	  INSERT INTO @Message(Result,Message)
+	  EXEC(@Query)
+
+	  IF EXISTS(Select 1 From @Message WHERE Result=2)
+	  BEGIN
+		SELECT * FROM @Message
+		RETURN
+	  END
+
+	  SET @Query=NULL
+
+	  SELECT @IdentityColumn=[Name]
+	  FROM SYS.IDENTITY_COLUMNS
+	  WHERE OBJECT_NAME(OBJECT_ID) = @TableNameArchive
+
+	  SET @Query='SELECT COUNT(1) FROM '+@TableNameArchive+''
+	  DECLARE @RowCountTable TABLE
+	  (
+		RowNo BIGINT
+	  )
+	  INSERT INTO @RowCountTable (RowNo)
+	  EXEC(@Query)
+	  
+	  SELECT @RowCount=RowNo FROM @RowCountTable
+	  SET @Query=NULL
+
+	  IF ISNULL(@IdentityColumn,'')<>'' AND ISNULL(@IdentityColumn,'')<> 'ArchiveId' AND @RowCount=0
+	  BEGIN
+			SET @Query='ALTER TABLE '+@TableNameArchive+'
+						DROP COLUMN '+@IdentityColumn+'
+
+						ALTER TABLE '+@TableNameArchive+'
+						ADD '+@IdentityColumn+' BIGINT
+
+						ALTER TABLE '+@TableNameArchive+'
+						ADD ArchiveId BIGINT IDENTITY
+						'
+			EXEC(@Query)
+		END
+		SET @Query=NULL
+
+		SELECT @IdentityColumn=[Name]
+		FROM SYS.IDENTITY_COLUMNS
+		WHERE OBJECT_NAME(OBJECT_ID) = @TableNameArchive
+
+		IF ISNULL(@IdentityColumn,'')<> 'ArchiveId' AND @RowCount=0
+		BEGIN
+			SET @Query='ALTER TABLE '+@TableNameArchive+'
+						ADD ArchiveId BIGINT IDENTITY
+						'
+			EXEC(@Query)
+	  END
+	  SELECT 1 AS 'Result',@TableNameArchive+' Table Created' AS 'Message'
+END TRY
+BEGIN CATCH
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(MAX) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	SELECT 0 AS 'Result', @ErrorMessage AS 'Message' 
+	--RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+ALTER PROC [dbo].[USP_RE_INSERT_ARCHIVE_TABLES_RECORDS]
+/************************************************************************                                                                              
+ '     Object Name   : USP_RE_INSERT_ARCHIVE_TABLES_RECORDS
+ '     Purpose       : 
+ '     Author        : Deepak
+ '     Creation Date : 26 Dec 2020
+ '	   Test          : EXEC [dbo].[USP_RE_INSERT_ARCHIVE_TABLES_RECORDS]
+************************************************************************/    
+(
+	@TableName VARCHAR(200),
+	@TableNameArchive VARCHAR(200)
+)
+AS 
+SET NOCOUNT ON;
+BEGIN TRY 
+	
+	DECLARE @Query VARCHAR(MAX),@Columns VARCHAR(MAX)
+		
+	SET @Query='SELECT '+ '''[''+'+'COLUMN_NAME+'']'+''' FROM INFORMATION_SCHEMA.COLUMNS C 
+				WHERE C.TABLE_NAME = '''+@TableName+''''
+
+	IF OBJECT_ID('tempdb..#TempColumn') IS NOT NULL DROP TABLE #TempColumn
+	CREATE TABLE #TempColumn
+	(
+		ID TINYINT,
+		ColumnName VARCHAR(200)
+	)
+	INSERT INTO #TempColumn(ColumnName)
+	EXEC (@Query)
+	SET @Query=NULL
+	
+	SELECT @Columns=T.ColumnNames FROM (
+	SELECT DISTINCT STUFF((SELECT DISTINCT ', ' + T1.ColumnName FROM #TempColumn T1 
+	WHERE ISNULL(T.ID,0) = ISNULL(T1.Id,0) FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)') ,1,2,'') ColumnNames 
+	FROM #TempColumn T)T;
+					
+	SET @Query='IF EXISTS(SELECT 1 FROM '+@TableName+')
+					BEGIN
+						INSERT INTO '+@TableNameArchive+' ('+@Columns+')
+		     			SELECT '+@Columns+' FROM '+@TableName+' 
+					END
+			   '
+	EXEC (@Query)
+	SET @Query=NULL
+
+	SET @Query='IF EXISTS(SELECT 1 FROM '+@TableName+')
+					BEGIN
+						DELETE FROM '+@TableName+'
+					END
+				'
+	EXEC (@Query)
+END TRY
+BEGIN CATCH
+	DECLARE @ErrorNumber INT = ERROR_NUMBER();  
+	DECLARE @ErrorLine INT = ERROR_LINE();  
+	DECLARE @ErrorMessage NVARCHAR(MAX) = ERROR_MESSAGE();  
+	DECLARE @ErrorSeverity INT = ERROR_SEVERITY();  
+	DECLARE @ErrorState INT = ERROR_STATE();  
+	DECLARE @ErrorProcedure VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ErrorMessage = ISNULL(@ErrorMessage, '')   
+	+ ' Procedure Name: ' + ISNULL(@ErrorProcedure, '')  
+	+ ' Error Number: ' + CAST(ISNULL(@ErrorNumber, 0) AS VARCHAR(10))   
+	+ ' Line Number: ' + CAST(ISNULL(@ErrorLine, 0) AS VARCHAR(10));  
+	SELECT 0 AS 'Result', @ErrorMessage AS 'Message' 
+	--RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);  
+END CATCH
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+ALTER PROC [dbo].[USP_RE_ARCHIVE]
+/************************************************************************                                                                              
+ '     OBJECT NAME   : USP_RE_ARCHIVE
+ '     PURPOSE       : 
+ '     AUTHOR        : DEEPAK
+ '     CREATION DATE : 26 DEC 2020
+ '	   TEST          : 
+************************************************************************/    
+AS 
+SET NOCOUNT ON;
+BEGIN TRY 
+	
+	DECLARE @FIYear VARCHAR(20)    
+	SELECT @FIYear = (CASE WHEN (MONTH(GETDATE())) <= 3 THEN CONVERT(VARCHAR(4), YEAR(GETDATE())-1) + '_' + CONVERT(VARCHAR(4), YEAR(GETDATE())%100)    
+                        ELSE CONVERT(VARCHAR(4),YEAR(GETDATE()))+ '_' + CONVERT(VARCHAR(4),(YEAR(GETDATE())%100)+1)END)
+
+	IF OBJECT_ID('TEMPDB..#TEMPTBLARCHIVE') IS NOT NULL 
+	DROP TABLE #TEMPTBLARCHIVE
+	SELECT IDENTITY(INT) AS ID,TABLENAME,COLUMNNAME,ISACTIVE,CREATEDON 
+	INTO #TEMPTBLARCHIVE FROM TBL_RE_ARCHIVE_MST WITH(NOLOCK) WHERE ISACTIVE=1
+
+	DECLARE @MINCOUNT INT,@MAXCOUNT INT,@TABLENAME VARCHAR(200),@COLUMNNAME VARCHAR(200),@TABLENAMEARCHIVE VARCHAR(200),@QUERY VARCHAR(MAX)
+	
+	SELECT @MINCOUNT=MIN(ID),@MAXCOUNT=MAX(ID) FROM #TEMPTBLARCHIVE
+	--ARCHIVE LOGIC
+	WHILE @MINCOUNT<=@MAXCOUNT
+	BEGIN
+		SELECT @TABLENAME=TABLENAME,@COLUMNNAME=COLUMNNAME FROM #TEMPTBLARCHIVE WHERE ID=@MINCOUNT
+		
+		--CHECK TABLE EXIST
+		SET @TABLENAMEARCHIVE=@TABLENAME+'_ARC_'+@FIYear
+		IF NOT EXISTS(SELECT 1 FROM SYS.TABLES WHERE [NAME] =@TABLENAMEARCHIVE)
+		BEGIN
+			--CREATE ARCHIVE TABLE
+			EXEC USP_RE_CREATE_ARCHIVE_TABLES @TABLENAME,@TABLENAMEARCHIVE
+		END
+
+		--INSERT INTO ARCHIVE
+		EXEC [DBO].[USP_RE_INSERT_ARCHIVE_TABLES_RECORDS] @TABLENAME,@TABLENAMEARCHIVE
+		SET @TABLENAME=NULL
+		SET @TABLENAMEARCHIVE=NULL
+		SET @COLUMNNAME=NULL
+		SET @MINCOUNT=@MINCOUNT+1
+	END
+END TRY
+BEGIN CATCH
+	DECLARE @ERRORNUMBER INT = ERROR_NUMBER();  
+	DECLARE @ERRORLINE INT = ERROR_LINE();  
+	DECLARE @ERRORMESSAGE NVARCHAR(MAX) = ERROR_MESSAGE();  
+	DECLARE @ERRORSEVERITY INT = ERROR_SEVERITY();  
+	DECLARE @ERRORSTATE INT = ERROR_STATE();  
+	DECLARE @ERRORPROCEDURE VARCHAR(500) = ERROR_PROCEDURE();  
+	  
+	SET @ERRORMESSAGE = ISNULL(@ERRORMESSAGE, '')   
+	+ ' PROCEDURE NAME: ' + ISNULL(@ERRORPROCEDURE, '')  
+	+ ' ERROR NUMBER: ' + CAST(ISNULL(@ERRORNUMBER, 0) AS VARCHAR(10))   
+	+ ' LINE NUMBER: ' + CAST(ISNULL(@ERRORLINE, 0) AS VARCHAR(10));  
+	SELECT 0 AS 'RESULT',@ERRORMESSAGE AS 'MESSAGE'
+	--RAISERROR(@ERRORMESSAGE, @ERRORSEVERITY, @ERRORSTATE);  
+END CATCH
