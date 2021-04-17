@@ -32,3 +32,13 @@ CALL MyTestProcPara(2,'Bo');
 /*Select*/
 Select * from TestTable Order By ID DESC;
 Select * from TestTable LIMIT 1;
+
+
+/********************Call From SQL Server*********************/
+Driver ConString "DRIVER={MySQL ODBC 8.0 Driver};SERVER=localhost;PORT=3306;DATABASE=mytestdb;USER=userName;PASSWORD=MyPwd;OPTION=3;"
+
+Select  * from openquery(MYSQLDB,'Select * from mysql.db');
+Select  * from openquery(MYSQLDB,'Select * from TestTable');
+Select  * from openquery(MYSQLDB,'CALL MyTestProc()');
+Select  * from openquery(MYSQLDB,'CALL MyTestProcPara(2,''Bo'');');
+
