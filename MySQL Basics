@@ -1,0 +1,34 @@
+
+CREATE TABLE TestTable
+(
+	ID INT auto_increment PRIMARY KEY,
+	Name VARCHAR(100),
+    Location VARCHAR(100)
+);
+
+INSERT INTO TestTable(Name,Location) Values('Mark','NYC'),('BOB','Manhatten')
+
+
+/*Create Proc*/
+DELIMITER &&  
+CREATE procedure MyTestProc()
+BEGIN
+	Select * from TestTable;
+END &&  
+DELIMITER ;  
+
+/* With Param Proc*/
+DELIMITER &&  
+CREATE DEFINER=`root`@`localhost` PROCEDURE `MyTestProcPara`(MyID INT,MyName VARCHAR(100))
+BEGIN
+	Select * from TestTable WHERE ID=MyID AND Name LIKE CONCAT('%', MyName , '%');
+END &&
+DELIMITER ;  
+
+/*Call Proc*/
+CALL MyTestProc();
+CALL MyTestProcPara(2,'Bo');
+
+/*Select*/
+Select * from TestTable Order By ID DESC;
+Select * from TestTable LIMIT 1;
