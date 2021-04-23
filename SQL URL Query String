@@ -1,0 +1,32 @@
+DECLARE @URL VARCHAR(1000)
+SET @URL='https://www.motilaloswalmf.com/mf/?chn_option=DIT&chn_brokercode=ARN-0155&chn_subbroker=ARN-70417&chn_euinno=EUIN-1234&chn_internalcode=abc123'
+
+SELECT ID,PanNo,Name,Mobile_No,Email_ID,State,City,New_Investor_Date,KEY_YES_NO,LOGIN,CAMPAIGN,utm_source,utm_medium,utm_creative,placement,utm_device,AadharNo,ProductName,URLLink,
+CASE WHEN CHARINDEX('chn_source', @URL)=0 THEN '' ELSE SUBSTRING(SUBSTRING(@URL,CHARINDEX('chn_source', @URL),LEN(@URL)),
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_source', @URL),LEN(@URL)))+1,
+			CHARINDEX('&',SUBSTRING(@URL,CHARINDEX('chn_source', @URL),LEN(@URL)))-
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_source', @URL),LEN(@URL)))-1)  END AS chn_source,
+CASE WHEN CHARINDEX('trans_type', @URL)=0 THEN '' ELSE SUBSTRING(SUBSTRING(@URL,CHARINDEX('trans_type', @URL),LEN(@URL)),
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('trans_type', @URL),LEN(@URL)))+1,
+			CHARINDEX('&',SUBSTRING(@URL,CHARINDEX('trans_type', @URL),LEN(@URL)))-
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('trans_type', @URL),LEN(@URL)))-1) END AS trans_type,
+CASE WHEN CHARINDEX('chn_option', @URL)=0 THEN '' ELSE SUBSTRING(SUBSTRING(@URL,CHARINDEX('chn_option', @URL),LEN(@URL)),
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_option', @URL),LEN(@URL)))+1,
+			CHARINDEX('&',SUBSTRING(@URL,CHARINDEX('chn_option', @URL),LEN(@URL)))-
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_option', @URL),LEN(@URL)))-1) END AS chn_option,
+CASE WHEN CHARINDEX('chn_brokercode', @URL)=0 THEN '' ELSE SUBSTRING(SUBSTRING(@URL,CHARINDEX('chn_brokercode', @URL),LEN(@URL)),
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_brokercode', @URL),LEN(@URL)))+1,
+			CHARINDEX('&',SUBSTRING(@URL,CHARINDEX('chn_brokercode', @URL),LEN(@URL)))-
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_brokercode', @URL),LEN(@URL)))-1) END AS chn_brokercode,
+CASE WHEN CHARINDEX('chn_subbroker', @URL)=0 THEN '' ELSE SUBSTRING(SUBSTRING(@URL,CHARINDEX('chn_subbroker', @URL),LEN(@URL)),
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_subbroker', @URL),LEN(@URL)))+1,
+			CHARINDEX('&',SUBSTRING(@URL,CHARINDEX('chn_subbroker', @URL),LEN(@URL)))-
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_subbroker', @URL),LEN(@URL)))-1) END AS chn_subbroker,
+CASE WHEN CHARINDEX('chn_euinno', @URL)=0 THEN '' ELSE SUBSTRING(SUBSTRING(@URL,CHARINDEX('chn_euinno', @URL),LEN(@URL)),
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_euinno', @URL),LEN(@URL)))+1,
+			CHARINDEX('&',SUBSTRING(@URL,CHARINDEX('chn_euinno', @URL),LEN(@URL)))-
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_euinno', @URL),LEN(@URL)))-1) END AS chn_euinno,
+CASE WHEN CHARINDEX('chn_internalcode', @URL)=0 THEN '' ELSE SUBSTRING(SUBSTRING(@URL,CHARINDEX('chn_internalcode=',@URL),LEN(@URL)),
+			CHARINDEX('=',SUBSTRING(@URL,CHARINDEX('chn_internalcode=',@URL)-1,LEN(@URL))),
+			LEN(SUBSTRING(@URL,CHARINDEX('chn_internalcode=',@URL),LEN(@URL)))) END AS chn_internalcode
+From Tbl_MF_NewInvestor
