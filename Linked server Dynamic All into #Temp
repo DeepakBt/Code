@@ -1,0 +1,4 @@
+EXEC master.dbo.sp_serveroption
+       @server = N'158.259.25.86',
+       @optname = N'remote proc transaction promotion',
+       @optvalue = N'false';
