@@ -1,0 +1,36 @@
+EXECUTE SP_CONFIGURE 'show advanced options', 1
+RECONFIGURE WITH OVERRIDE
+GO
+ 
+EXEC sp_configure 'Ole Automation Procedures', 1;
+RECONFIGURE WITH OVERRIDE
+GO
+ 
+DECLARE @IMG_PATH VARBINARY(MAX)
+DECLARE @ObjectToken INT
+ 
+SELECT
+    @IMG_PATH = A.content
+FROM
+    sys.assembly_files      A   WITH(NOLOCK)
+    JOIN sys.assemblies     B   WITH(NOLOCK) ON A.assembly_id = B.assembly_id
+WHERE
+    A.file_id = 1
+    AND B.name = 'XIRR' -- nome do assembly
+ 
+EXEC sp_OACreate 'ADODB.Stream', @ObjectToken OUTPUT
+EXEC sp_OASetProperty @ObjectToken, 'Type', 1
+EXEC sp_OAMethod @ObjectToken, 'Open'
+EXEC sp_OAMethod @ObjectToken, 'Write', NULL, @IMG_PATH
+EXEC sp_OAMethod @ObjectToken, 'SaveToFile', NULL, 'D:\XIRR.dll', 2 -- Nome do seu assembly
+EXEC sp_OAMethod @ObjectToken, 'Close'
+EXEC sp_OADestroy @ObjectToken  
+ 
+-- Desativando o OLE Automation (Execute apenas se não estava ativado antes)
+EXEC sp_configure 'Ole Automation Procedures', 0;
+RECONFIGURE WITH OVERRIDE
+GO
+ 
+EXECUTE SP_CONFIGURE 'show advanced options', 0
+RECONFIGURE WITH OVERRIDE
+GO
