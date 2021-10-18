@@ -1,0 +1,62 @@
+
+
+CREATE TABLE LogonAuditUser
+(
+	ID INT PRIMARY KEY IDENTITY(1,1),
+	UserName NVARCHAR(255),
+	LogonTime DATETIME,
+	IP VARCHAR(50),
+	HOSTNAME VARCHAR(50)
+);
+
+
+CREATE TRIGGER LogonTrigger_For_Audit_User ON ALL SERVER FOR LOGON
+AS
+BEGIN
+	INSERT INTO Master.dbo. LogonAuditUser(UserName, LogonTime, IP,HOSTNAME)
+	VALUES (ORIGINAL_LOGIN(), GETDATE(), CONVERT(varchar(48),CONNECTIONPROPERTY('client_net_address')),HOST_NAME());
+END;
+
+ALTER TRIGGER Logon_CheckIP ON ALL SERVER
+FOR LOGON
+AS
+	BEGIN
+		DECLARE @IPAddress NVARCHAR(50);
+		SET @IPAddress = EVENTDATA().value('(/EVENT_INSTANCE/ClientHost)[1]','NVARCHAR(50)');
+	IF EXISTS(SELECT 1 FROM TBL_USER_IP WHERE IP = @IPAddress)
+	BEGIN
+		Print 'Not Valid'
+		ROLLBACK
+	END
+END
+--------------------------------------------------------------------------------------------------------------------------------
+ --DBCC DROPCLEANBUFFERS
+ --DBCC FREEPROCCACHE
+ 
+ -------------------
+
+
+CREATE TRIGGER Logon_CheckIP ON ALL SERVER WITH EXECUTE AS 'business'
+FOR LOGON
+AS
+BEGIN
+	DECLARE @IPAddress NVARCHAR(50);
+	SET @IPAddress = EVENTDATA().value('(/EVENT_INSTANCE/ClientHost)[1]','NVARCHAR(50)');
+	IF EXISTS(SELECT 1 FROM master.dbo.TBL_USER_IP WHERE IP = @IPAddress AND SuserName='business')
+	BEGIN
+		ROLLBACK
+	END
+END
+
+ALTER TRIGGER Logon_CheckIP ON ALL SERVER WITH EXECUTE AS 'amcportal'
+FOR LOGON
+AS
+BEGIN
+	DECLARE @IPAddress NVARCHAR(50);
+	SET @IPAddress = EVENTDATA().value('(/EVENT_INSTANCE/ClientHost)[1]','NVARCHAR(50)');
+	IF EXISTS(SELECT 1 FROM master.dbo.TBL_USER_IP WHERE IP = @IPAddress AND SuserName=ORIGINAL_LOGIN())
+	BEGIN
+		ROLLBACK
+	END
+END
+DROP TRIGGER Logon_CheckIP  ON ALL SERVER
