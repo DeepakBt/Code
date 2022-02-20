@@ -1,0 +1,69 @@
+USE TestDB
+GO
+
+
+--SELECT * FROM IN_PinCodeLoaction Where pin='834006'
+--Select *from pinCode
+
+IF OBJECT_ID('tempdb..#TempLatLon') IS NOT NULL DROP TABLE #TempLatLon
+Select * INTO #TempLatLon From (
+SELECT Rank() Over (Partition By Pin order by PinName) r,* FROM IN_PinCodeLoaction
+)T WHERE T.r=1
+
+
+IF OBJECT_ID('tempd..#TempRawData') IS NOT NULL DROP TABLE #TempRawData
+SELECT DISTINCT P.SourcePin AS 'pinCode1',d.pinCode2 INTO #TempRawData FROM pinCodeDistance d Cross Join pinCode P
+Order by  P.SourcePin
+---------------
+IF OBJECT_ID('tempdb..#TempPins') IS NOT NULL DROP TABLE #TempPins
+SELECT PD.pinCode1,PD.PinCode2,PL.lat AS 'PinCode1lat',PL.lon AS 'pinCode1Lon',PL2.lat AS 'PinCode2lat',PL2.lon AS 'pinCode2Lon',
+[dbo].[DistanceKM] (PL.lat,PL.lon,PL2.lat,PL2.lon) AS 'DistanceInKm'  INTO #TempPins from #TempRawData PD 
+LEFT OUTER JOIN #TempLatLon PL ON PD.pinCode1=PL.pin
+LEFT OUTER JOIN #TempLatLon PL2 ON PD.pinCode2=PL2.pin
+
+Select pinCode1 'IFAPincode' ,pinCode2 AS 'BranchPinCode',ceiling(DistanceInKm) AS 'DistanceInKm' from #TempPins 
+Where DistanceInKm IS NOT NULL
+
+
+
+
+RETURN
+Select * from pinCodeDistance
+SELECT DISTINCT P.SourcePin AS 'pinCode1',d.pinCode2 FROM pinCodeDistance d Cross Join pinCode P
+Order by  P.SourcePin
+
+
+
+select * from pinCodeDistance
+Select * from pinCode
+
+
+RETURN
+
+----19.1839° N, 72.8584° E
+----19.1178° N, 72.8737° E
+
+--Select [dbo].[DistanceKM] (19.1839,72.8584,19.1178,72.8737)
+
+--DECLARE @sourceLatitude FLOAT = 19.1839;  
+--DECLARE @sourceLongitude FLOAT = 72.8584;  
+--DECLARE @destinationLatitude FLOAT = 19.1178;  
+--DECLARE @destinationLongitude FLOAT = 72.8737;  
+--DECLARE @Location FLOAT  
+--SET @Location = SQRT(POWER(69.1 * ( @destinationLatitude - @sourceLatitude),  2) + POWER(69.1 * ( @sourceLongitude  - @destinationLongitude )  * COS(@destinationLatitude / 57.3), 2))  
+--Select @Location * 1.6
+
+--ALTER Function [dbo].[DistanceKM] 
+--( 
+--      @sourceLatitude Float, 
+--	  @sourceLongitude Float, 
+--      @destinationLatitude Float, 
+--      @destinationLongitude Float
+--)
+--Returns Float
+--AS
+--Begin
+--	DECLARE @Location FLOAT  
+--	SET @Location = SQRT(POWER(69.1 * ( @destinationLatitude - @sourceLatitude),  2) + POWER(69.1 * ( @sourceLongitude  - @destinationLongitude )  * COS(@destinationLatitude / 57.3), 2))  
+--	RETURN @Location*1.6
+--End
