@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>UTILITY</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <script>
+        function NumVal() {
+            var YourSIP = document.getElementById("YourMonthly").value = document.getElementById("YourMonthly").value.replace(/[^0-9]/g, '').replace(/(\..*?)\..*/g, '$1');;
+            document.getElementById("EmployerMonthly").value = YourSIP;
+            var TotalSIP = parseInt(YourSIP) + parseInt(document.getElementById("EmployerMonthly").value);
+            document.getElementById("Total").value = TotalSIP;
+        }
+        function CalculateMyval() {
+            var YourSIP = document.getElementById("YourMonthly").value;
+            var EmpSIP = document.getElementById("EmployerMonthly").value;
+            var TotalCont = document.getElementById("Total").value;
+            var Periodvalue = document.getElementById("Period").value;
+            var taxSlabValue = document.getElementById("taxSlab").value;
+            var ExpectedRetValue = document.getElementById("ExpectedRet").value;
+            var yourTotalCont = Math.round(parseFloat((taxSlabValue / 100) * parseInt(YourSIP) * 12 * parseInt(Periodvalue)) + (parseInt(YourSIP) * 12 * parseInt(Periodvalue)));
+            var rate = parseFloat(parseInt(ExpectedRetValue) / 12).toFixed(2);
+            var nper = parseInt(Periodvalue) * 12;
+            var pmt = parseInt(-TotalCont);
+            var CurrValue=Math.round(FV((parseInt(ExpectedRetValue) / 12) / 100, parseInt(Periodvalue) * 12, -parseInt(TotalCont), 0, 1));
+            document.getElementById("YourTotal").value = "₹ "+RupessFormat(yourTotalCont).toString();
+            document.getElementById("CurrentValue").value = "₹ "+RupessFormat(CurrValue).toString();
+            document.getElementById("AbsoluteReturns").value="₹ "+RupessFormat(CurrValue-yourTotalCont).toString();
+        }
+        function RupessFormat(Amount) {
+                Amount = Amount.toString();
+                var lastThree = Amount.substring(Amount.length - 3);
+                var otherNumbers = Amount.substring(0, Amount.length - 3);
+                if (otherNumbers != '')
+                    lastThree = ',' + lastThree;
+                var res = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+                return res;
+            }
+
+        function FV(rate, nper, pmt, pv, type) {
+            var pow = Math.pow(1 + rate, nper),
+                fv;
+            pv = pv || 0;
+            type = type || 0;
+
+            if (rate) {
+                fv = (pmt * (1 + rate * type) * (1 - pow) / rate) - pv * pow;
+            } else {
+                fv = -1 * (pv + pmt * nper);
+            }
+            return fv;
+        }
+    </script>
+</head>
+
+<body>
+    <div style="width: 500px;">
+        <div class="form-group">
+            <label for="YourMonthly" class="control-label">Your Monthly SIP Contribution</label>
+            <input type="text" oninput="NumVal()" class="form-control" id="YourMonthly"
+                placeholder="Your Monthly SIP Contribution">
+        </div>
+        <div class="form-group">
+            <label for="EmployerMonthly" class="control-label">Employer's Monthly SIP Contribution </label>
+            <input type="text" class="form-control" id="EmployerMonthly"
+                placeholder="Employer's Monthly SIP Contribution" readonly>
+        </div>
+        <div class="form-group">
+            <label for="Total" class="control-label">Total contribution </label>
+            <input type="text" class="form-control" id="Total" placeholder="Total contribution" readonly>
+        </div>
+
+        <div class="form-group">
+            <label for="taxSlab">Your tax slab rate</label>
+            <select class="form-control" id="taxSlab" name="ddltaxSlab">
+                <option value="0">0 %</option>
+                <option value="5.20">5.20 %</option>
+                <option value="20.80">20.80 %</option>
+                <option value="31.20">31.20 %</option>
+                <option value="34.32">34.32 %</option>
+                <option value="35.88">35.88 %</option>
+                <option value="39">39 %</option>
+                <option value="42.74">42.74 %</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="ExpectedRet">Expected Returns </label>
+            <select class="form-control" id="ExpectedRet" name="ddlExpectedRet">
+                <option value="8">8 %</option>
+                <option value="10">10 %</option>
+                <option value="12">12 %</option>
+                <option value="16">16 %</option>
+                <option value="18">18 %</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="Period">Period (in years) </label>
+            <select class="form-control" id="Period" name="ddlPeriod">
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="YourTotal" class="control-label">Your Total Contribution (Including tax on MOFSL contribution)
+            </label>
+            <input type="text" class="form-control" id="YourTotal"
+                placeholder="Your Total Contribution (Including tax on MOFSL contribution)" readonly>
+        </div>
+        <div class="form-group">
+            <label for="CurrentValue" class="control-label">Current Value </label>
+            <input type="text" class="form-control" id="CurrentValue" placeholder="Current Value" readonly>
+        </div>
+        <div class="form-group">
+            <label for="AbsoluteReturns" class="control-label">Absolute Returns</label>
+            <input type="text" class="form-control" id="AbsoluteReturns" placeholder="Absolute Returns" readonly>
+        </div>
+        <button class="btn btn-default" onclick="CalculateMyval()">Calculate</button>
+    </div>
+</body>
+
+</html>
