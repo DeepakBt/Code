@@ -4,7 +4,6 @@ CREATE PROC [dbo].[ME_DB]
  '     Purpose       : 
  '     Author        : Deepak
  '     Creation Date : 4 Sep 2018
- '	   Test          : ME_DB 1,1,16,'',NULL,NULL,NULL,3
 ************************************************************************/    
 (	
 	@Flag SMALLINT = NULL,	
@@ -334,3 +333,53 @@ BEGIN CATCH
 	SELECT 0 AS 'Result', 'There was some error' AS 'Message'
 END CATCH
 END
+
+------------------------------------CASE ME Object 2 DEMO-------------------------
+        SELECT @NAVFromDate=CASE WHEN @NAVFromDate IN ('1900-01-01','') THEN NULL ELSE @NAVFromDate END
+	SELECT @NAVToDate=CASE WHEN @NAVToDate IN ('1900-01-01','') THEN NULL ELSE @NAVToDate END
+	SELECT @UserID=CASE WHEN @UserID IN ('ALL','',NULL) THEN 'ALL' ELSE @UserID END
+	SELECT @BenchmarkIndicesCode=CASE WHEN @BenchmarkIndicesCode IN ('ALL','',NULL) THEN 'ALL' ELSE @BenchmarkIndicesCode END
+
+	IF OBJECT_ID('tempdb..#TempUserId') IS NOT NULL DROP TABLE #TempUserId
+	CREATE TABLE #TempUserId
+	(
+		ID INT,
+		[Value] VARCHAR(100)
+	)
+
+	IF OBJECT_ID('tempdb..#TempBenchmarkIndicesCode') IS NOT NULL DROP TABLE #TempBenchmarkIndicesCode
+	CREATE TABLE #TempBenchmarkIndicesCode
+	(
+		ID INT,
+		[Value] VARCHAR(100)
+	)
+
+	IF ISNULL(@UserID,'') <>'ALL'
+	BEGIN
+		INSERT INTO #TempUserId
+		SELECT * FROM MOAMCPORTAL.DBO.fn_split_delimiter(@UserID,',')
+	END
+
+	SELECT @BenchmarkIndicesCode=CASE WHEN @BenchmarkIndicesCode IN ('ALL','',NULL) THEN 'ALL' ELSE @BenchmarkIndicesCode END
+	IF ISNULL(@BenchmarkIndicesCode,'') <>'ALL'
+	BEGIN
+		INSERT INTO #TempBenchmarkIndicesCode
+		SELECT *  FROM MOAMCPORTAL.DBO.fn_split_delimiter(@BenchmarkIndicesCode,',')
+	END
+
+	SELECT A.ID AS 'SrNo',A.BenchmarkIndicesCode AS 'IndicesCode',B.BenchmarkIndicesName AS 'IndicesName',
+	FORMAT(CONVERT(DATE, A.NavDate),'dd-MM-yyyy') AS 'NavDate',
+	A.BenchMark AS 'BenchMark' ,
+	FORMAT(CONVERT(DATE, A.CreatedOn),'dd-MM-yyyy') AS 'CreatedOn',UMM.EmpName AS 'CreatedBy'
+	FROM TBL_DAILY_BENCHMARK A inner join TBL_BENCHMARK_INDICES_MST B
+	on A.BenchmarkIndicesCode=B.BenchmarkIndicesCode 
+	LEFT OUTER JOIN [PMS_Account_Tracker].DBO.PMS_Mst_User UMM ON A.CreatedBy=UMM.EmpCode  
+	WHERE NavDate BETWEEN ISNULL(@NAVFromDate,NavDate) AND ISNULL(@NAVToDate,NavDate) AND B.IsActive=1
+	AND @UserID=CASE WHEN @UserID='ALL' THEN 'ALL'
+					 WHEN @UserID<>'ALL' AND A.CreatedBy IN (SELECT [value] FROM #TempUserId) THEN @UserID
+				END
+	AND @BenchmarkIndicesCode=CASE WHEN @BenchmarkIndicesCode='ALL' THEN 'ALL'
+					 WHEN @BenchmarkIndicesCode<>'ALL' AND A.BenchmarkIndicesCode IN 
+					 (SELECT [value] FROM #TempBenchmarkIndicesCode) THEN @BenchmarkIndicesCode
+				END
+	ORDER BY A.NavDate DESC
