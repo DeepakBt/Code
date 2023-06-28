@@ -1,0 +1,34 @@
+  //MySQL
+            string server = "127.0.0.1";
+            int port = 3306;
+            string database = "CRM";
+            string username = "root";
+            string password = "Data@321";
+
+            string sshHost = "192.168.99.888";
+            int sshPort = 22;
+            string sshUsername = "root";
+            string sshPassword = "Data@123";
+
+            var connectionInfo = new ConnectionInfo(sshHost, sshPort, sshUsername,
+                new PasswordAuthenticationMethod(sshUsername, sshPassword));
+
+            var sshClient = new SshClient(connectionInfo);
+            sshClient.Connect();
+
+            // Forward a local port to the MySQL server
+            var portForwarded = new ForwardedPortLocal("127.0.0.1", (uint)port, server, (uint)port);
+            sshClient.AddForwardedPort(portForwarded);
+            portForwarded.Start();
+
+            // Create connection string
+            var connectionStringBuilder = new MySqlConnectionStringBuilder
+            {
+                Server = "127.0.0.1",
+                Port = (uint)portForwarded.BoundPort,
+                Database = database,
+                UserID = username,
+                Password = password,
+            };
+
+            CRMCon = connectionStringBuilder.ConnectionString;
