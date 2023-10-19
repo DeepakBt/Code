@@ -76,4 +76,8 @@ All Exculding Web/Mobile/Zaffo/Savvy
 TrnxCount	TrnxAmount
 4493727		50589866799
 
+ALL EXculding Web/Mobile
+TrnxCount	TrnxAmount
+4494218	50598953595
+
 
