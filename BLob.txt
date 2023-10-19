@@ -60,5 +60,20 @@ https://us04web.zoom.us/j/74983640748?pwd=a5Nbkw8rSXb1lUXnxKajG0YeWqrsTV.1
             }
         }
 
+Zaffo/Savvy
+TrnxCount	TrnxAmount
+491		9086796
+
+Mobile
+TrnxCountMobile	TrnxAmountMobile
+69706		435045021
+
+Web
+TrnxCountWeb	TrnxAmountWeb
+321135		3316646027
+
+All Exculding Web/Mobile/Zaffo/Savvy
+TrnxCount	TrnxAmount
+4493727		50589866799
 
 
