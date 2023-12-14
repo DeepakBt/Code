@@ -1,0 +1,70 @@
+CREATE DEFINER=`root`@`localhost` PROCEDURE `USP_SAVE_NAV`(XMLNavReq LONGTEXT)
+BEGIN
+DECLARE xmlDoc LONGTEXT;
+  DECLARE i INT ;
+  DECLARE coun INT;
+  DECLARE child1 VARCHAR(400);
+  DECLARE child2 VARCHAR(400);
+
+  SET i =1;
+
+  SET xmlDoc = XMLNavReq;
+
+  SET coun = ExtractValue(xmlDoc, 'count(/NavMasterReq/NavReq/NavMaster/recdt)');
+
+  DROP TEMPORARY TABLE  IF EXISTS `NavMst`; 
+  CREATE TEMPORARY TABLE NavMst (
+		recdt VARCHAR(50),
+		prodcode VARCHAR(50),
+		schcode VARCHAR(50),
+		plancode VARCHAR(50),
+		nav VARCHAR(50),
+		navchng VARCHAR(50),
+		isdividend VARCHAR(50),
+		repurprice VARCHAR(50),
+		saleprice VARCHAR(50),
+		divpuind VARCHAR(50),
+		divpucorp VARCHAR(50),
+		amfi_schcode VARCHAR(50),
+		createdby VARCHAR(50),
+		createdip VARCHAR(50),
+		updatedby VARCHAR(50),
+		updatedip VARCHAR(50),
+		navchngper VARCHAR(50)
+    ); 
+
+  WHILE i <= coun DO
+
+    INSERT INTO NavMst
+    SELECT ExtractValue(xmlDoc, '//NavMaster[$i]/recdt'), 
+		   ExtractValue(xmlDoc,   '//NavMaster[$i]/prodcode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/schcode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/plancode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/nav'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/navchng'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/isdividend'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/repurprice'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/saleprice'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/divpuind'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/divpucorp'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/amfi_schcode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/createdby'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/createdip'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/updatedby'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/updatedip'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/navchngper');
+
+    SET i = i+1;
+
+  END WHILE;
+ INSERT INTO navmaster 
+	(
+		recdt,prodcode,schcode,plancode,nav,navchng,isdividend,repurprice,saleprice,divpuind,divpucorp,
+        amfi_schcode,createddt,createdby,createdip,updateddt,updatedby,updatedip,navchngper
+	)
+  SELECT recdt,prodcode,schcode,plancode,nav,navchng,isdividend,repurprice,saleprice,divpuind,divpucorp,
+		  amfi_schcode,Now(),createdby,createdip,Null,Null,null,navchngper 
+  FROM  NavMst; 
+  DROP TEMPORARY TABLE  IF EXISTS `NavMst`; 
+  SELECT 1 AS 'Result','Nav Saved' AS 'Message';
+END
