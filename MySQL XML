@@ -68,3 +68,114 @@ DECLARE xmlDoc LONGTEXT;
   DROP TEMPORARY TABLE  IF EXISTS `NavMst`; 
   SELECT 1 AS 'Result','Nav Saved' AS 'Message';
 END
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE DEFINER=`root`@`localhost` PROCEDURE `USP_SAVE_NAV`(XMLNavReq LONGTEXT)
+BEGIN
+DECLARE xmlDoc LONGTEXT;
+  DECLARE i INT ;
+  DECLARE coun INT;
+  DECLARE child1 VARCHAR(400);
+  DECLARE child2 VARCHAR(400);
+
+  SET i =1;
+
+  SET xmlDoc = XMLNavReq;
+
+  SET coun = ExtractValue(xmlDoc, 'count(/NavMasterReq/NavReq/NavMaster/recdt)');
+
+  DROP TEMPORARY TABLE  IF EXISTS `NavMst`; 
+  CREATE TEMPORARY TABLE NavMst (
+		recdt VARCHAR(50),
+		prodcode VARCHAR(50),
+		schcode VARCHAR(50),
+		plancode VARCHAR(50),
+		nav VARCHAR(50),
+		navchng VARCHAR(50),
+		isdividend VARCHAR(50),
+		repurprice VARCHAR(50),
+		saleprice VARCHAR(50),
+		divpuind VARCHAR(50),
+		divpucorp VARCHAR(50),
+		amfi_schcode VARCHAR(50),
+		createdby VARCHAR(50),
+		createdip VARCHAR(50),
+		updatedby VARCHAR(50),
+		updatedip VARCHAR(50),
+		navchngper VARCHAR(50)
+    ); 
+
+  WHILE i <= coun DO
+
+    INSERT INTO NavMst
+    SELECT ExtractValue(xmlDoc, '//NavMaster[$i]/recdt'), 
+		   ExtractValue(xmlDoc,   '//NavMaster[$i]/prodcode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/schcode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/plancode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/nav'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/navchng'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/isdividend'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/repurprice'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/saleprice'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/divpuind'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/divpucorp'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/amfi_schcode'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/createdby'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/createdip'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/updatedby'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/updatedip'),
+           ExtractValue(xmlDoc,   '//NavMaster[$i]/navchngper');
+
+    SET i = i+1;
+
+  END WHILE;
+ 
+	DROP TABLE IF EXISTS TempHNav;
+	CREATE TEMPORARY TABLE TempHNav 
+	SELECT * FROM navmasterhistory H LEFT OUTER JOIN 
+	(
+		SELECT  MAX(H.navId) AS 'MaxNavId' FROM NavMst M 
+        LEFT OUTER JOIN navmasterhistory H ON M.Prodcode=H.Prodcode
+		WHERE M.Prodcode=H.Prodcode AND M.recdt > H.recdt
+		GROUP BY H.ProdCode
+	) MX ON H.navId=MX.MaxNavId
+	WHERE H.navId=MX.MaxNavId;
+    
+    DROP TABLE IF EXISTS TempNavCal;
+	CREATE TEMPORARY TABLE TempNavCal 
+	SELECT M.*,IFNULL(CAST(M.Nav-H.Nav AS DECIMAL(18,4)),0) AS 'NavChanges',
+	IFNULL((CAST((TRIM(CAST(M.Nav-H.Nav AS DECIMAL(18,4)) * 100 / CAST(H.Nav AS DECIMAL(18,4)))+0) AS DECIMAL(18,2))),0) AS 'NavChangesPer'
+	FROM NavMst M LEFT OUTER JOIN TempHNav H ON M.Prodcode=H.Prodcode;
+    
+    SET SQL_SAFE_UPDATES = 0;
+		UPDATE navmaster N RIGHT OUTER JOIN TempNavCal C ON RTRIM(LTRIM(C.prodcode))=RTRIM(LTRIM(N.prodcode))
+		SET N.recdt=C.recdt,N.prodcode=C.prodcode,N.schcode=C.schcode,N.plancode=C.plancode,N.Nav=C.Nav,
+		N.navchng=C.NavChanges,N.isdividend=C.isdividend,
+		N.repurprice=C.repurprice,N.saleprice=C.saleprice,N.divpuind=C.divpuind,N.amfi_schcode=C.amfi_schcode,
+		N.updateddt=NOW(),N.updatedby=C.updatedby,
+		N.navchngper=C.NavChangesPer
+		WHERE RTRIM(LTRIM(C.prodcode))=RTRIM(LTRIM(N.prodcode));
+	SET SQL_SAFE_UPDATES = 1;
+    
+	INSERT INTO navmaster 
+	(
+		recdt,prodcode,schcode,plancode,nav,navchng,isdividend,repurprice,saleprice,divpuind,divpucorp,
+        amfi_schcode,createddt,createdby,createdip,updateddt,updatedby,updatedip,navchngper
+	)
+    SELECT DISTINCT C.recdt,C.prodcode,C.schcode,C.plancode,C.nav,C.NavChanges,C.isdividend,C.repurprice,
+    C.saleprice,C.divpuind,C.divpucorp,C.amfi_schcode,Now(),C.createdby,C.createdip,Null,Null,null,C.NavChangesPer 
+    FROM TempNavCal C LEFT OUTER JOIN navmaster N ON RTRIM(LTRIM(C.prodcode))=RTRIM(LTRIM(N.prodcode))
+	WHERE N.prodcode IS NULL;
+    
+	INSERT INTO navmasterhistory
+	(
+		recdt,prodcode,schcode,plancode,nav,navchng,isdividend,repurprice,saleprice,divpuind,divpucorp,
+		amfi_schcode,createddt,createdby,createdip,navchngper
+    )
+	SELECT recdt,prodcode,schcode,plancode,nav,NavChanges,isdividend,repurprice,saleprice,divpuind,
+	divpucorp,amfi_schcode,Now(),createdby,createdip,NavChangesPer FROM TempNavCal; 
+  
+	DROP TEMPORARY TABLE  IF EXISTS `NavMst`; 
+	DROP TEMPORARY TABLE IF EXISTS `TempHNav`;
+	DROP TEMPORARY TABLE IF EXISTS `TempNavCal`;
+	SELECT 1 AS 'Result','Nav Saved' AS 'Message';
+END
